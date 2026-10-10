@@ -1,0 +1,127 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+@source '../../app/Enums/*.php';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+@layer components {
+    .btn-primary {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700;
+    }
+
+    .btn-secondary {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-emerald-950 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700;
+    }
+
+    .form-input {
+        @apply block w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15;
+    }
+
+    .text-link {
+        @apply font-semibold text-emerald-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700;
+    }
+
+    .nav-link {
+        @apply text-stone-600 transition hover:text-emerald-800 aria-[current=page]:text-emerald-900 aria-[current=page]:underline aria-[current=page]:underline-offset-8;
+    }
+
+    .eyebrow {
+        @apply text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700;
+    }
+
+    .area-tag {
+        @apply rounded-full border border-emerald-900/10 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-900;
+    }
+
+    .workspace-link {
+        @apply flex min-h-11 items-center rounded-xl px-4 py-3 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700;
+    }
+
+    .mobile-link {
+        @apply flex min-w-0 flex-1 flex-col items-center gap-1 rounded-lg px-1 py-1 text-xs font-medium text-stone-500 aria-[current=page]:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700;
+    }
+}
+
+.lot-dialog::backdrop {
+    background: rgb(6 78 59 / 45%);
+}
+
+@layer components {
+    .layout-control {
+        @apply inline-flex size-9 items-center justify-center rounded-lg font-semibold text-emerald-950 hover:bg-stone-100 disabled:cursor-default disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700;
+    }
+}
+
+.lot-layout-viewport {
+    max-height: 640px;
+    background: #d9ddbd;
+    scrollbar-color: #819274 #e7ebd8;
+    scrollbar-width: thin;
+}
+
+.lot-layout-viewport:focus-visible {
+    outline: 2px solid #047857;
+    outline-offset: -2px;
+}
+
+.lot-layout-canvas {
+    width: max(680px, 100%);
+}
+
+.lot-layout-block {
+    background: #d9ddbd;
+}
+
+.lot-layout-block + .lot-layout-block {
+    border-top: 1px solid #a6b192;
+}
+
+[data-parcel-status="available"] { --parcel-color: #9ee69b; }
+[data-parcel-status="reserved"] { --parcel-color: #f6d47a; }
+[data-parcel-status="sold"] { --parcel-color: #eea38b; }
+[data-parcel-status="fully_paid"] { --parcel-color: #c6b9e9; }
+
+.parcel-swatch {
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 1px solid rgb(52 76 54 / 25%);
+    border-radius: 3px;
+    background: var(--parcel-color);
+}
+
+.lot-parcel {
+    cursor: pointer;
+    outline: none;
+}
+
+.lot-parcel-shape {
+    fill: var(--parcel-color);
+    stroke: #f7faec;
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+
+.lot-parcel:hover .lot-parcel-shape,
+.lot-parcel:focus .lot-parcel-shape {
+    filter: brightness(1.08);
+    stroke: #183d2b;
+    stroke-width: 4;
+    paint-order: fill stroke;
+}
+
+.lot-parcel-label {
+    fill: #243c2a;
+    pointer-events: none;
+    font-family: var(--font-sans);
+}
+
+.parcel-number { font-size: 12px; font-weight: 700; }
+.parcel-area { font-size: 11px; }
+.layout-lane-label { fill: #53624e; font-size: 10px; letter-spacing: 3px; font-weight: 600; }
