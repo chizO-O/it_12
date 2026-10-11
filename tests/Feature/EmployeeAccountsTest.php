@@ -40,7 +40,7 @@ class EmployeeAccountsTest extends TestCase
     public function test_non_admin_roles_cannot_list_create_or_invite_employees(string $role): void
     {
         $user = User::factory()->create(['role' => $role]);
-        $employee = User::factory()->create(['role' => 'agent', 'password' => null]);
+        $employee = User::factory()->create(['role' => 'field_planner', 'password' => null]);
 
         $this->actingAs($user)->get('/employees')->assertForbidden();
         $this->post('/employees', ['name' => 'Forged', 'email' => 'forged@example.com', 'role' => 'admin'])->assertForbidden();
@@ -60,11 +60,11 @@ class EmployeeAccountsTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $this->actingAs($admin);
 
-        foreach (['buyer', 'super_admin', 'secretary'] as $role) {
+        foreach (['buyer', 'agent', 'super_admin', 'secretary'] as $role) {
             $this->post('/employees', ['name' => 'Invalid', 'email' => 'invalid@example.com', 'role' => $role])->assertSessionHasErrors('role');
         }
 
-        $this->post('/employees', ['name' => 'Duplicate', 'email' => $admin->email, 'role' => 'agent'])->assertSessionHasErrors('email');
+        $this->post('/employees', ['name' => 'Duplicate', 'email' => $admin->email, 'role' => 'cashier'])->assertSessionHasErrors('email');
         $this->assertDatabaseCount('users', 1);
     }
 
@@ -91,7 +91,7 @@ class EmployeeAccountsTest extends TestCase
     {
         Notification::fake();
         $admin = User::factory()->create(['role' => 'admin']);
-        $employee = User::factory()->unverified()->create(['role' => 'agent', 'password' => null]);
+        $employee = User::factory()->unverified()->create(['role' => 'field_planner', 'password' => null]);
         $buyer = User::factory()->create();
         $active = User::factory()->create(['role' => 'cashier']);
 
@@ -99,6 +99,8 @@ class EmployeeAccountsTest extends TestCase
         Notification::assertSentTo($employee, ResetPassword::class);
         $this->post(route('employees.invite', $buyer))->assertForbidden();
         $this->post(route('employees.invite', $active))->assertForbidden();
+        $legacyAgent = User::factory()->unverified()->create(['role' => 'agent', 'password' => null]);
+        $this->post(route('employees.invite', $legacyAgent))->assertForbidden();
     }
 
     public function test_first_admin_command_has_no_default_password_and_cannot_be_used_twice(): void
@@ -122,7 +124,7 @@ class EmployeeAccountsTest extends TestCase
     public function test_admin_can_update_an_employee_role_without_changing_other_account_details(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
-        $employee = User::factory()->create(['role' => 'agent']);
+        $employee = User::factory()->create(['role' => 'field_planner']);
         $password = $employee->password;
         $email = $employee->email;
 
@@ -144,17 +146,17 @@ class EmployeeAccountsTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $buyer = User::factory()->create();
-        $employee = User::factory()->create(['role' => 'agent']);
+        $employee = User::factory()->create(['role' => 'field_planner']);
 
         $this->actingAs($admin)->patch(route('employees.role', $admin), ['role' => 'cashier'])->assertForbidden();
         $this->patch(route('employees.role', $buyer), ['role' => 'admin'])->assertForbidden();
 
-        foreach (['buyer', 'owner', 'secretary'] as $role) {
+        foreach (['buyer', 'agent', 'owner', 'secretary'] as $role) {
             $this->patch(route('employees.role', $employee), ['role' => $role])->assertSessionHasErrors('role');
         }
 
         $this->assertSame(UserRole::Admin, $admin->fresh()->role);
         $this->assertSame(UserRole::Buyer, $buyer->fresh()->role);
-        $this->assertSame(UserRole::Agent, $employee->fresh()->role);
+        $this->assertSame(UserRole::FieldPlanner, $employee->fresh()->role);
     }
 }

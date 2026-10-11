@@ -1,0 +1,18 @@
+GROVEMAP PHASE 7 PATCH
+======================
+
+This patch extends the existing Laravel 12 / Blade / Tailwind / Supabase PostgreSQL project.
+
+1. Back up your local GroveMap working project and development Supabase data.
+2. Merge the patch into your existing grove_map folder (do not delete existing files).
+3. Use `php artisan migrate:status` and review pending migrations.
+4. Use `php artisan migrate` on your development Supabase DB (DO NOT run migrate:fresh).
+5. Run `php artisan config:clear`, `php artisan test --compact`, `npm.cmd run build`.
+6. Sign in as Agent: open an assigned Buyer conversation and reserve an Available lot.
+7. Sign in as Buyer: open My reservations and submit the Buyer form.
+8. Sign in as Unit Manager: open Reservation reviews and approve/reject.
+
+No new .env secrets, client-side Supabase keys, or packages are required.
+No CTS/signing/payment features or automatic expiration were added.
+
+See docs/phase7-reservations.md for complete workflow and limitations.

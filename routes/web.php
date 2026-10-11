@@ -1,12 +1,20 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AgentManagementController;
+use App\Http\Controllers\BuyerAssessmentController;
+use App\Http\Controllers\BuyerInformationCorrectionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CtsController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\GoogleAuthController;
+use App\Http\Controllers\InquiryController;
+use App\Http\Controllers\InquiryNotificationController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\LotAssignmentController;
 use App\Http\Controllers\LotController;
 use App\Http\Controllers\PropertyController;
+use App\Http\Controllers\ReservationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -31,6 +39,55 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         Route::get('/inventory/{property}/lots/{lot}', [InventoryController::class, 'lot'])->name('inventory.lot');
         Route::resource('properties', PropertyController::class);
         Route::resource('properties.lots', LotController::class)->except(['index', 'show']);
+    });
+
+    // Phase 6: buyers and assigned Agents may read/reply; Admin sees only inquiry routing metadata.
+    Route::get('/inquiries', [InquiryController::class, 'index'])->name('inquiries.index');
+    Route::post('/inquiries/notifications/read', [InquiryNotificationController::class, 'readAll'])->name('inquiries.notifications.read');
+    Route::post('/inventory/{property}/lots/{lot}/inquiries', [InquiryController::class, 'store'])
+        ->scopeBindings()->middleware(['role:buyer', 'throttle:10,1'])->name('inquiries.store');
+    Route::get('/inquiries/{inquiry}', [InquiryController::class, 'show'])->name('inquiries.show');
+    Route::post('/inquiries/{inquiry}/messages', [InquiryController::class, 'message'])
+        ->middleware('throttle:30,1')->name('inquiries.messages.store');
+    Route::get('/inquiries/{inquiry}/updates', [InquiryController::class, 'updates'])
+        ->middleware('throttle:90,1')->name('inquiries.updates');
+
+    // Phase 7: reservation requests and buyer-information review.
+    Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
+    Route::post('/reservations/notifications/read', [ReservationController::class, 'readNotifications'])->name('reservations.notifications.read');
+    Route::post('/inquiries/{inquiry}/reservations', [ReservationController::class, 'store'])
+        ->middleware(['role:agent', 'throttle:10,1'])->name('reservations.store');
+    Route::get('/reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
+    Route::put('/reservations/{reservation}/details', [ReservationController::class, 'details'])
+        ->middleware('role:buyer')->name('reservations.details');
+    Route::put('/reservations/{reservation}/assessment', [BuyerAssessmentController::class, 'update'])
+        ->middleware('role:agent')->name('reservations.assessment');
+    Route::post('/reservations/{reservation}/corrections', [BuyerInformationCorrectionController::class, 'store'])
+        ->middleware(['role:buyer,agent', 'throttle:10,1'])->name('reservations.corrections.store');
+    Route::patch('/reservations/{reservation}/corrections/{correction}', [BuyerInformationCorrectionController::class, 'review'])
+        ->middleware('role:unit_manager')->name('reservations.corrections.review');
+    Route::patch('/reservations/{reservation}/review', [ReservationController::class, 'review'])
+        ->middleware('role:unit_manager')->name('reservations.review');
+    Route::patch('/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])
+        ->middleware('role:agent,unit_manager')->name('reservations.cancel');
+
+    // Phase 8: CTS tracking (the legal preparation/signing/notarization occurs outside GroveMap).
+    Route::get('/cts', [CtsController::class, 'index'])->name('cts.index');
+    Route::post('/reservations/{reservation}/cts', [CtsController::class, 'initiate'])->middleware('role:unit_manager')->name('cts.initiate');
+    Route::get('/cts/{cts}', [CtsController::class, 'show'])->name('cts.show');
+    Route::patch('/cts/{cts}/verify', [CtsController::class, 'verify'])->middleware('role:field_planner')->name('cts.verify');
+    Route::post('/cts/{cts}/draft', [CtsController::class, 'uploadDraft'])->middleware('role:admin')->name('cts.draft');
+    Route::patch('/cts/{cts}/review', [CtsController::class, 'review'])->middleware('role:buyer')->name('cts.review');
+    Route::post('/cts/{cts}/complete', [CtsController::class, 'complete'])->middleware('role:admin')->name('cts.complete');
+    Route::get('/cts/{cts}/documents/{kind}', [CtsController::class, 'document'])->name('cts.document');
+
+    Route::middleware('role:unit_manager')->group(function () {
+        Route::get('/agents', [AgentManagementController::class, 'index'])->name('agents.index');
+        Route::post('/agents', [AgentManagementController::class, 'store'])->middleware('throttle:10,1')->name('agents.store');
+        Route::post('/agents/{agent}/invite', [AgentManagementController::class, 'invite'])->middleware('throttle:10,1')->name('agents.invite');
+        Route::post('/agents/{agent}/claim', [AgentManagementController::class, 'claim'])->name('agents.claim');
+        Route::get('/lot-assignments', [LotAssignmentController::class, 'index'])->name('assignments.index');
+        Route::patch('/lot-assignments/{lot}', [LotAssignmentController::class, 'update'])->name('assignments.update');
     });
 
     Route::middleware('role:admin')->group(function () {

@@ -8,7 +8,7 @@
             <option value="all" @selected($status === 'all')>All statuses</option>@foreach($statuses as $lotStatus)<option value="{{ $lotStatus->value }}" @selected($status === $lotStatus->value)>{{ $lotStatus->label() }}</option>@endforeach
         </x-select-field><button class="btn-secondary">Show lots</button><span class="px-2 py-3 text-sm text-stone-500">{{ $lots->total() }} {{ Str::plural('lot', $lots->total()) }} found</span>
     </form>
-    <x-lot-layout :property="$property" :lots="$lots" layout-id="inventory-layout" />
+    <x-lot-layout :property="$property" :lots="$lots" :grid="$grid" layout-id="inventory-layout" />
     <div class="mt-6">{{ $lots->links() }}</div>
     <x-lot-dialogs :property="$property" :lots="$lots" />
 </x-workspace>

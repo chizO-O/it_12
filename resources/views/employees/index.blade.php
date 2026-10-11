@@ -12,7 +12,7 @@
                     <x-form-field name="name" label="Full name" autocomplete="name" maxlength="255" />
                     <x-form-field name="email" label="Employee email" type="email" autocomplete="email" maxlength="255" />
                     <div><label for="role" class="mb-2 block text-sm font-medium">Role</label><select id="role" name="role" class="form-input" required>
-                        @foreach($roles as $role)<option value="{{ $role->value }}" @selected(old('role', 'agent') === $role->value)>{{ $role->label() }}</option>@endforeach
+                        @foreach($roles as $role)<option value="{{ $role->value }}" @selected(old('role', 'field_planner') === $role->value)>{{ $role->label() }}</option>@endforeach
                     </select>@error('role')<p class="mt-2 text-sm text-red-700">{{ $message }}</p>@enderror</div>
                     <button class="btn-primary w-full">Create & send setup link</button>
                 </form>

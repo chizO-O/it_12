@@ -10,7 +10,7 @@
         @if($property->description)<p class="mt-5 whitespace-pre-line break-words text-sm leading-6 text-stone-600">{{ $property->description }}</p>@endif
     </div>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 class="text-xl font-semibold text-emerald-950">Property layout</h2><div class="flex flex-wrap gap-3"><a class="btn-secondary" href="{{ route('inventory.show', [$property, 'status' => 'all']) }}">Browse inventory</a><a class="btn-primary" href="{{ route('properties.lots.create', $property) }}">Add lot</a></div></div>
-    <x-lot-layout :property="$property" :lots="$lots" layout-id="management-layout" />
+    <x-lot-layout :property="$property" :lots="$lots" :grid="$grid" layout-id="management-layout" />
     <h2 class="mb-4 mt-8 text-xl font-semibold text-emerald-950">Lot records</h2>
     <div class="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table class="w-full text-left text-sm"><caption class="sr-only">Lots belonging to {{ $property->name }}</caption>

@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -45,6 +46,36 @@ class User extends Authenticatable implements MustVerifyEmail
      *
      * @return array<string, string>
      */
+    public function buyerInquiries(): HasMany
+    {
+        return $this->hasMany(Inquiry::class, 'buyer_id');
+    }
+
+    public function assignedInquiries(): HasMany
+    {
+        return $this->hasMany(Inquiry::class, 'agent_id');
+    }
+
+    public function buyerReservations(): HasMany
+    {
+        return $this->hasMany(Reservation::class, 'buyer_id');
+    }
+
+    public function agentReservations(): HasMany
+    {
+        return $this->hasMany(Reservation::class, 'agent_id');
+    }
+
+    public function supervisedAgents(): HasMany
+    {
+        return $this->hasMany(self::class, 'unit_manager_id');
+    }
+
+    public function assignedLots(): HasMany
+    {
+        return $this->hasMany(Lot::class, 'assigned_agent_id');
+    }
+
     protected function casts(): array
     {
         return [

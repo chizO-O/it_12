@@ -78,3 +78,17 @@ This command also applies any still-pending migrations from earlier phases. No S
 - Previous deployment checks remain: actual mail delivery, real Google OAuth, and earlier pending migrations. See `authentication.md`.
 
 Agent inquiries/chat, buyer assignment, reservations, CTS tracking, verified payments, and PWA installation remain future phases. The database guarantee against simultaneous active reservations belongs to the reservation phase; lot-identity uniqueness does not implement that workflow. Phase 6 is the next roadmap stage, and requires the user's confirmation before work begins.
+
+
+## Schematic SVG layout persistence (follow-up to Phase 5)
+
+The subdivision-style layout was already based on Laravel's `lots` table. This follow-up makes **lot positions** optionally persistent in Supabase as well. New migration: `2026_10_10_120000_add_schematic_layout_positions_to_lots.php`.
+
+- Added nullable `lots.grid_row` (1–40) and `lots.grid_column` (1–12). Existing lots remain unchanged and still render automatically.
+- Field Planner can set **both** fields in Add/Edit Lot. A unique PostgreSQL index prevents two explicitly placed lots in the same property/block from having the same row and column. Empty/block variants are normalized just like lot identifiers. Invalid or duplicate coordinates are rejected in the form too.
+- Rendering reads **every** lot's position in the selected property to calculate the schematic grid, then shows the filtered/paginated lots at those positions. Manually pinned cells stay in place when changing inventory status/page. Unpinned lots fill unused cells automatically; they may shift when new lots are added or identifiers change.
+- Lot number, area, price, and status remain sourced from live Eloquent `Lot` records (ultimately Supabase PostgreSQL) on each page request. The status colors and details dialog are unchanged. The SVG links and dialogs now expose `data-lot-id` and `data-property-id` to ease attaching Phase 6 inquiries to the chosen lot.
+- No reservation, buyer-agent messaging, or payment status updates are implemented here. Phase 6 should add an authorized inquiry/chat route linked to `lots.id`, replacing a future UI CTA without creating fake conversations.
+- The drawing is **schematic**, not a surveyed/legal representation. No geographical coordinate or boundary data is claimed.
+
+After copying the updated files into your existing project, back up your development Supabase database and run `php artisan migrate`. This is additive; **never** use `migrate:fresh`. Then test saving a position as Field Planner, refreshing the Buyer inventory, and filtering statuses; check that a second lot cannot use the same location in a block. Run `php artisan test --compact` and `npm run build` on the Windows development machine.

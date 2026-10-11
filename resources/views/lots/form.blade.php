@@ -8,6 +8,14 @@
         @if($editing) @method('PUT') @endif
         <div class="grid gap-6 sm:grid-cols-2"><x-form-field name="lot_no" label="Lot number" :value="$lot->lot_no" maxlength="255" /><x-form-field name="block_no" label="Block number (optional)" :value="$lot->block_no" :required="false" maxlength="255" /></div>
         <div class="grid gap-6 sm:grid-cols-2"><x-form-field name="area_sqm" label="Area in m²" type="number" :value="$lot->area_sqm" min="0.01" max="9999999999.99" step="0.01" /><x-form-field name="selling_price" label="Selling price (PHP)" type="number" :value="$lot->selling_price" min="0.01" max="9999999999999.99" step="0.01" /></div>
+        <fieldset class="rounded-xl border border-stone-200 p-4">
+            <legend class="px-2 text-sm font-semibold text-emerald-950">Schematic map position (optional)</legend>
+            <p class="mb-4 text-sm text-stone-600">Enter both a row and a column to pin this lot in its block. Leave both blank for automatic placement. Rows and columns are illustrative, not surveyed coordinates.</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <x-form-field name="grid_row" label="Map row (1–40)" type="number" :value="$lot->grid_row" :required="false" min="1" max="40" step="1" />
+                <x-form-field name="grid_column" label="Map column (1–12)" type="number" :value="$lot->grid_column" :required="false" min="1" max="12" step="1" />
+            </div>
+        </fieldset>
         <div class="rounded-xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-900"><p class="font-semibold">Status: Available</p><p>New lots start as Available. Reservations and payment records control later status changes.</p></div>
         <button class="btn-primary">{{ $editing ? 'Save lot' : 'Create lot' }}</button>
     </form>

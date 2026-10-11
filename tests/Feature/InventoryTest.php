@@ -31,6 +31,35 @@ class InventoryTest extends TestCase
         }
     }
 
+    public function test_the_map_uses_database_lot_details_and_keeps_saved_position_across_filters(): void
+    {
+        $property = Property::factory()->create();
+        $available = Lot::factory()->for($property)->create([
+            'lot_no' => 'PERSISTENT-LOT', 'grid_row' => 3, 'grid_column' => 4,
+            'area_sqm' => '135.50', 'selling_price' => '456789.25',
+        ]);
+        $reserved = Lot::factory()->for($property)->create([
+            'lot_no' => 'RESERVED-LOT', 'grid_row' => 1, 'grid_column' => 2, 'status' => LotStatus::Reserved,
+        ]);
+        $this->actingAs(User::factory()->create());
+
+        $availableView = $this->get(route('inventory.show', $property));
+        $availableView->assertOk()
+            ->assertSee('data-lot-id="'.$available->id.'"', false)
+            ->assertSee('data-grid-row="3"', false)->assertSee('data-grid-column="4"', false)
+            ->assertSee('₱456,789.25')->assertDontSee('RESERVED-LOT');
+
+        $allView = $this->get(route('inventory.show', [$property, 'status' => 'all']));
+        $allView->assertOk()->assertSee('PERSISTENT-LOT')->assertSee('RESERVED-LOT')
+            ->assertSee('data-grid-row="3"', false)->assertSee('data-grid-column="4"', false)
+            ->assertSee('data-grid-row="1"', false)->assertSee('data-grid-column="2"', false);
+
+        $available->update(['selling_price' => '550000.00']);
+        $this->get(route('inventory.show', $property))->assertOk()->assertSee('₱550,000.00')->assertDontSee('₱456,789.25');
+        $this->assertSame([3, 4], [$available->fresh()->grid_row, $available->fresh()->grid_column]);
+        $this->assertSame('reserved', $reserved->fresh()->status->value);
+    }
+
     public static function roles(): array
     {
         return array_map(fn ($role) => [$role->value], UserRole::cases());

@@ -20,8 +20,11 @@ class WorkspaceTest extends TestCase
         $user = User::factory()->create(['role' => $role]);
         $response = $this->actingAs($user)->get(route($user->role->dashboardRoute()));
 
-        $response->assertOk()->assertSee($expectedTool)->assertDontSee($excludedTool)
-            ->assertSee('Workspace navigation')->assertSee('Mobile navigation')->assertSee('Coming soon');
+        $response->assertOk()
+            ->assertSee($expectedTool)
+            ->assertDontSee($excludedTool)
+            ->assertSee('Workspace navigation')
+            ->assertSee('Mobile navigation');
 
         $document = new DOMDocument;
         @$document->loadHTML($response->getContent());
@@ -32,8 +35,21 @@ class WorkspaceTest extends TestCase
         }
 
         $expected = [route($user->role->dashboardRoute()), route('account'), route('inventory.index')];
+        if (in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager], true)) {
+            $expected[] = route('inquiries.index');
+        }
+        if (in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager, UserRole::Admin], true)) {
+            $expected[] = route('reservations.index');
+        }
+        if ($user->role !== UserRole::Cashier) {
+            $expected[] = route('cts.index');
+        }
         if ($user->role === UserRole::FieldPlanner) {
             $expected[] = route('properties.index');
+        }
+        if ($user->role === UserRole::UnitManager) {
+            $expected[] = route('agents.index');
+            $expected[] = route('assignments.index');
         }
         if ($user->role === UserRole::Admin) {
             $expected[] = route('employees.index');
@@ -43,16 +59,71 @@ class WorkspaceTest extends TestCase
         sort($links);
         sort($expected);
         $this->assertSame($expected, $links);
-        $this->assertGreaterThan(0, $xpath->query('//nav[@aria-label="Workspace navigation"]//span[@aria-disabled="true"]')->length);
+        
     }
+
+    
+public function test_agent_navigation_has_one_conversations_link_without_duplicate_messages_item(): void
+{
+    $agent = User::factory()->create([
+        'role' => UserRole::Agent,
+    ]);
+
+    $response = $this->actingAs($agent)
+        ->get(route('agent.dashboard'))
+        ->assertOk();
+
+    $document = new DOMDocument;
+
+    @$document->loadHTML($response->getContent());
+
+    $xpath = new DOMXPath($document);
+
+    // GroveMap renders separate desktop and mobile menus.
+    $menus = $xpath->query(
+        '//nav[@aria-label="Workspace navigation"]'
+    );
+
+    $this->assertGreaterThan(0, $menus->length);
+
+    foreach ($menus as $menu) {
+        $conversationLinks = $xpath->query(
+            './/a[normalize-space()="Conversations"]',
+            $menu
+        );
+
+        // Each menu should contain exactly one Conversations link.
+        $this->assertSame(1, $conversationLinks->length);
+
+        $this->assertSame(
+            route('inquiries.index'),
+            $conversationLinks->item(0)->getAttribute('href')
+        );
+
+        // No separate Inquiries or Messages links.
+        $this->assertSame(
+            0,
+            $xpath->query(
+                './/a[normalize-space()="Messages" or normalize-space()="Inquiries"]',
+                $menu
+            )->length
+        );
+    }
+
+    $this->actingAs($agent)
+        ->get(route('inquiries.index'))
+        ->assertOk()
+        ->assertSee('Conversations');
+}
+
 
     public static function roles(): array
     {
         return [
             ['buyer', 'Browse lots', 'Payment records'],
-            ['agent', 'My buyers', 'CTS documents'],
+            ['agent', 'Conversations', 'Payment records'],
             ['unit_manager', 'Reservation reviews', 'Payment records'],
-            ['field_planner', 'Properties & lots', 'CTS documents'],
+            ['field_planner', 'Properties & lots', 'Payment records'],
             ['admin', 'Employees', 'My buyers'],
             ['cashier', 'Payment records', 'Reservation reviews'],
         ];
@@ -67,9 +138,13 @@ class WorkspaceTest extends TestCase
         $originalPassword = $user->password;
 
         $this->actingAs($user)->patch('/account', [
-            'name' => 'Updated Name', 'user_id' => $other->id,
-            'email' => 'forged@example.com', 'password' => 'forged-password',
-            'role' => 'admin', 'google_id' => 'forged-google-id', 'email_verified_at' => null,
+            'name' => 'Updated Name',
+            'user_id' => $other->id,
+            'email' => 'forged@example.com',
+            'password' => 'forged-password',
+            'role' => 'admin',
+            'google_id' => 'forged-google-id',
+            'email_verified_at' => null,
         ])->assertRedirect(route('account'))->assertSessionHas('status');
 
         $user->refresh();
@@ -85,7 +160,7 @@ class WorkspaceTest extends TestCase
 
     public static function allRoles(): array
     {
-        return array_map(fn (UserRole $role) => [$role->value], UserRole::cases());
+        return array_map(fn(UserRole $role) => [$role->value], UserRole::cases());
     }
 
     public function test_profile_update_rejects_missing_or_long_names(): void

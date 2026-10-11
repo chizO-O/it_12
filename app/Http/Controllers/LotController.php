@@ -27,12 +27,16 @@ class LotController extends Controller
         try {
             DB::transaction(function () use ($request, $property) {
                 $current = Property::query()->whereKey($property->id)->lockForUpdate()->firstOrFail();
-                $lot = $current->lots()->make($request->safe()->only(['lot_no', 'block_no', 'area_sqm', 'selling_price']));
+                $lot = $current->lots()->make($request->safe()->only(['lot_no', 'block_no', 'area_sqm', 'selling_price', 'grid_row', 'grid_column']));
                 $lot->status = LotStatus::Available;
                 $lot->save();
             });
         } catch (UniqueConstraintViolationException $exception) {
-            throw ValidationException::withMessages(['lot_no' => 'This lot number already exists in the same property and block.']);
+            throw ValidationException::withMessages(
+                str_contains($exception->getMessage(), 'lots_layout_position_unique')
+                    ? ['grid_row' => 'This grid position is already assigned to another lot in the same block.']
+                    : ['lot_no' => 'This lot number already exists in the same property and block.']
+            );
         }
 
         return to_route('properties.show', $property)->with('status', 'Lot added as Available.');
@@ -52,10 +56,14 @@ class LotController extends Controller
                 $current = Property::query()->whereKey($property->id)->lockForUpdate()->firstOrFail();
                 $currentLot = $current->lots()->whereKey($lot->id)->lockForUpdate()->firstOrFail();
                 Gate::authorize('update', $currentLot);
-                $currentLot->update($request->safe()->only(['lot_no', 'block_no', 'area_sqm', 'selling_price']));
+                $currentLot->update($request->safe()->only(['lot_no', 'block_no', 'area_sqm', 'selling_price', 'grid_row', 'grid_column']));
             });
         } catch (UniqueConstraintViolationException $exception) {
-            throw ValidationException::withMessages(['lot_no' => 'This lot number already exists in the same property and block.']);
+            throw ValidationException::withMessages(
+                str_contains($exception->getMessage(), 'lots_layout_position_unique')
+                    ? ['grid_row' => 'This grid position is already assigned to another lot in the same block.']
+                    : ['lot_no' => 'This lot number already exists in the same property and block.']
+            );
         }
 
         return to_route('properties.show', $property)->with('status', 'Lot updated.');
@@ -68,6 +76,9 @@ class LotController extends Controller
             $current = Property::query()->whereKey($property->id)->lockForUpdate()->firstOrFail();
             $currentLot = $current->lots()->whereKey($lot->id)->lockForUpdate()->firstOrFail();
             Gate::authorize('delete', $currentLot);
+            if ($currentLot->inquiries()->exists() || $currentLot->reservations()->exists()) {
+                throw ValidationException::withMessages(['lot' => 'This lot has an inquiry or reservation history and cannot be deleted.']);
+            }
             $currentLot->delete();
         });
 

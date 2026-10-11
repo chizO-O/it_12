@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\PropertyLocation;
 use App\Http\Requests\SavePropertyRequest;
 use App\Models\Property;
+use App\Support\LotGrid;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +47,10 @@ class PropertyController extends Controller
         $property->loadCount('lots');
         $lots = $property->lots()->orderByRaw("COALESCE(block_no, '')")->orderBy('lot_no')->orderBy('id')->paginate(20);
 
-        return view('properties.show', compact('property', 'lots'));
+        $grid = LotGrid::build($property->lots()->select(['id', 'block_no', 'lot_no', 'grid_row', 'grid_column'])
+            ->orderByRaw("COALESCE(block_no, '')")->orderBy('lot_no')->orderBy('id')->get());
+
+        return view('properties.show', compact('property', 'lots', 'grid'));
     }
 
     public function edit(Property $property): View

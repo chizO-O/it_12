@@ -1,6 +1,6 @@
-@props(['property', 'lots', 'layoutId' => 'lot-layout'])
+@props(['property', 'lots', 'grid', 'layoutId' => 'lot-layout'])
 @php
-    $blocks = collect($lots->items())->groupBy(fn ($lot) => $lot->block_no === null ? 'unassigned' : 'block:'.$lot->block_no);
+    $blocks = collect($lots->items())->groupBy(fn ($lot) => \App\Support\LotGrid::blockKey($lot->block_no));
 @endphp
 <section class="lot-layout overflow-hidden rounded-2xl border border-stone-200 bg-white" aria-labelledby="{{ $layoutId }}-heading" data-lot-layout>
     <div class="flex flex-wrap items-center justify-between gap-4 border-b border-stone-200 px-5 py-4">
@@ -22,11 +22,11 @@
     @if($lots->count())
         <div class="lot-layout-viewport overflow-auto" data-layout-viewport tabindex="0" aria-label="Scrollable schematic lot layout">
             <div class="lot-layout-canvas" data-layout-canvas>
-                @foreach($blocks as $blockLots)
+                @foreach($blocks as $blockKey => $blockLots)
                     @php
                         $blockLots = $blockLots->values();
-                        $columns = min(12, max(6, (int) ceil($blockLots->count() / 2)));
-                        $rows = (int) ceil($blockLots->count() / $columns);
+                        $columns = $grid['blocks'][$blockKey]['columns'];
+                        $rows = $grid['blocks'][$blockKey]['rows'];
                         $height = 240 + $rows * 126;
                         $width = 844 / $columns;
                         $blockLabel = $blockLots->first()->block_no === null ? 'Lots without a block number' : 'Block '.$blockLots->first()->block_no;
@@ -51,8 +51,8 @@
                             </g>
                             @foreach($blockLots as $lot)
                                 @php
-                                    $column = $loop->index % $columns;
-                                    $row = intdiv($loop->index, $columns);
+                                    $column = $grid['positions'][$lot->id]['column'];
+                                    $row = $grid['positions'][$lot->id]['row'];
                                     $x = 78 + $column * $width;
                                     $y = 120 + $row * 126;
                                     $slant = $row % 2 === 0 ? 16 : -16;
@@ -63,7 +63,7 @@
                                     $centerY = $y + 63;
                                     $labelId = $layoutId.'-label-'.$lot->id;
                                 @endphp
-                                <a href="{{ route('inventory.lot', [$property, $lot]) }}" class="lot-parcel" data-parcel-status="{{ $lot->status->value }}" data-lot-dialog="lot-details-{{ $lot->id }}" aria-haspopup="dialog" aria-label="Lot {{ $lot->lot_no }}, {{ $blockLabel }}, {{ $lot->area_sqm }} square meters, {{ $lot->status->label() }}, PHP {{ $lot->selling_price }}" tabindex="0">
+                                <a href="{{ route('inventory.lot', [$property, $lot]) }}" class="lot-parcel" data-lot-id="{{ $lot->id }}" data-property-id="{{ $property->id }}" data-grid-row="{{ $row + 1 }}" data-grid-column="{{ $column + 1 }}" data-parcel-status="{{ $lot->status->value }}" data-lot-dialog="lot-details-{{ $lot->id }}" aria-haspopup="dialog" aria-label="Lot {{ $lot->lot_no }}, {{ $blockLabel }}, {{ $lot->area_sqm }} square meters, {{ $lot->status->label() }}, PHP {{ $lot->selling_price }}" tabindex="0">
                                     <title>Lot {{ $lot->lot_no }} · {{ $lot->area_sqm }} m² · {{ $lot->status->label() }} · ₱{{ number_format((float) $lot->selling_price, 2) }}</title>
                                     <polygon points="{{ $points }}" class="lot-parcel-shape" />
                                     <clipPath id="{{ $labelId }}"><polygon points="{{ $points }}" /></clipPath>
@@ -81,5 +81,5 @@
     @else
         <div class="bg-stone-50 px-6 py-12 text-center"><h3 class="font-semibold text-emerald-950">No lots with this status</h3><p class="mt-2 text-sm text-stone-500">Choose another status or add an authorized lot to see its parcel.</p></div>
     @endif
-    <p class="border-t border-stone-200 bg-stone-50 px-5 py-3 text-xs leading-5 text-stone-500">Schematic only. Parcel shapes, sizes, lanes, and positions do not represent a surveyed subdivision plan. This view shows the lots on the current page.</p>
+    <p class="border-t border-stone-200 bg-stone-50 px-5 py-3 text-xs leading-5 text-stone-500">Schematic only. Parcel shapes, sizes, lanes, and positions do not represent a surveyed subdivision plan. Positions use saved rows/columns when present; otherwise they are automatically arranged across all recorded lots. This view shows the lots on the current page.</p>
 </section>

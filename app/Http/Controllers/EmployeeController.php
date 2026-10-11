@@ -17,8 +17,8 @@ class EmployeeController extends Controller
     public function index(): View
     {
         return view('employees.index', [
-            'employees' => User::where('role', '!=', UserRole::Buyer->value)->latest()->paginate(15),
-            'roles' => UserRole::employees(),
+            'employees' => User::whereIn('role', [UserRole::Admin->value, UserRole::UnitManager->value, UserRole::FieldPlanner->value, UserRole::Cashier->value])->latest()->paginate(15),
+            'roles' => self::officeRoles(),
         ]);
     }
 
@@ -31,11 +31,12 @@ class EmployeeController extends Controller
         $input = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', new UniqueUserEmail],
-            'role' => ['required', Rule::in(array_column(UserRole::employees(), 'value'))],
+            'role' => ['required', Rule::in(array_column(self::officeRoles(), 'value'))],
         ]);
 
         $employee = new User(['name' => $input['name'], 'email' => $input['email']]);
         $employee->role = UserRole::from($input['role']);
+        $employee->invited_by_user_id = $request->user()->id;
         $employee->save();
 
         return $this->sendInvitation($employee);
@@ -43,7 +44,7 @@ class EmployeeController extends Controller
 
     public function invite(User $employee): RedirectResponse
     {
-        abort_if($employee->role === UserRole::Buyer || $employee->password !== null, 403);
+        abort_if(in_array($employee->role, [UserRole::Buyer, UserRole::Agent], true) || $employee->password !== null, 403);
 
         return $this->sendInvitation($employee);
     }
@@ -51,16 +52,21 @@ class EmployeeController extends Controller
     public function updateRole(Request $request, User $employee): RedirectResponse
     {
         // Keep public Buyers outside employee administration and retain the acting Admin.
-        abort_if($employee->role === UserRole::Buyer || $employee->is($request->user()), 403);
+        abort_if(in_array($employee->role, [UserRole::Buyer, UserRole::Agent], true) || $employee->is($request->user()), 403);
 
         $input = $request->validate([
-            'role' => ['required', Rule::in(array_column(UserRole::employees(), 'value'))],
+            'role' => ['required', Rule::in(array_column(self::officeRoles(), 'value'))],
         ]);
 
         $employee->role = UserRole::from($input['role']);
         $employee->save();
 
         return redirect()->route('employees.index')->with('status', 'The employee role has been updated.');
+    }
+
+    private static function officeRoles(): array
+    {
+        return [UserRole::Admin, UserRole::UnitManager, UserRole::FieldPlanner, UserRole::Cashier];
     }
 
     private function sendInvitation(User $employee): RedirectResponse
