@@ -1,43 +1,42 @@
 <?php
 
+// Role-specific navigation. Dashboard, Notifications and My Account are shared.
+// Supporting actions (Agent assessments, CTS verification and sale confirmation)
+// stay inside the corresponding workflow rather than being separate dashboard tabs.
 return [
     'navigation' => [
         'buyer' => [
-            ['label' => 'Browse lots', 'description' => 'Explore properties in Toril, Kidapawan, and Kapalong.', 'route' => 'inventory.index'],
-            ['label' => 'Conversations', 'description' => 'Discuss selected lots with your assigned Agent.', 'route' => 'inquiries.index'],
-            ['label' => 'My reservations', 'description' => 'Track reserved lots and submit buyer contact information.', 'route' => 'reservations.index'],
-            ['label' => 'CTS tracking', 'description' => 'Review your CTS documents and processing progress.', 'route' => 'cts.index'],
-            ['label' => 'Balances', 'description' => 'View your payment schedule and remaining balance.', 'route' => null],
+            ['label' => 'Property listings', 'description' => 'Browse available lots and contact the Agent assigned to a lot.', 'route' => 'inventory.index'],
+            ['label' => 'Conversations', 'description' => 'Submit property inquiries and chat with the assigned Agent.', 'route' => 'inquiries.index'],
+            ['label' => 'My reservations', 'description' => 'Submit contact details and track your own reservation.', 'route' => 'reservations.index'],
+            ['label' => 'CTS (Contract to Sell)', 'description' => 'View and review Contract to Sell documents for your lots.', 'route' => 'cts.index'],
+            ['label' => 'My payments', 'description' => 'See verified receipts, upcoming due dates, and outstanding balances.', 'route' => 'sales.index'],
         ],
         'agent' => [
-            ['label' => 'Property inventory', 'description' => 'View properties and current lot availability.', 'route' => 'inventory.index'],
-            ['label' => 'Conversations', 'description' => 'Handle buyer inquiries and associated messages.', 'route' => 'inquiries.index'],
-            ['label' => 'Reservations', 'description' => 'Confirm interest and track lot reservations.', 'route' => 'reservations.index'],
-            ['label' => 'CTS tracking', 'description' => 'Monitor the CTS status for your assigned buyers.', 'route' => 'cts.index'],
-        ],
-        'unit_manager' => [
-            ['label' => 'Property inventory', 'description' => 'View properties and current lot availability.', 'route' => 'inventory.index'],
-            ['label' => 'Manage Agents', 'description' => 'Invite and supervise Agents.', 'route' => 'agents.index'],
-            ['label' => 'Lot assignments', 'description' => 'Assign Agents before inquiries.', 'route' => 'assignments.index'],
-            ['label' => 'Pending inquiries', 'description' => 'Check inquiries awaiting lot assignment.', 'route' => 'inquiries.index'],
-            ['label' => 'Reservation reviews', 'description' => 'Review buyer information and reserved lots.', 'route' => 'reservations.index'],
-            ['label' => 'CTS tracking', 'description' => 'Initiate CTS processing from approved reservations.', 'route' => 'cts.index'],
-        ],
-        'field_planner' => [
-            ['label' => 'Properties & lots', 'description' => 'Maintain authorized property details and lot inventory.', 'route' => 'properties.index'],
-            ['label' => 'Property inventory', 'description' => 'View properties and current lot availability.', 'route' => 'inventory.index'],
-            ['label' => 'CTS property verification', 'description' => 'Record property/owner verification for requested CTS.', 'route' => 'cts.index'],
+            ['label' => 'Property listings', 'description' => 'View lots assigned for marketing and respond to property interest.', 'route' => 'inventory.index'],
+            ['label' => 'Conversations', 'description' => 'Respond to buyer inquiries and record reservation interest.', 'route' => 'inquiries.index'],
+            ['label' => 'Reservations', 'description' => 'Create reservations and record buyer assessments.', 'route' => 'reservations.index'],
         ],
         'admin' => [
-            ['label' => 'Property inventory', 'description' => 'View properties and current lot availability.', 'route' => 'inventory.index'],
-            ['label' => 'Employees', 'description' => 'Invite and manage office employee accounts.', 'route' => 'employees.index'],
-            ['label' => 'Reservation overview', 'description' => 'Monitor reservation status without changing decisions.', 'route' => 'reservations.index'],
-            ['label' => 'CTS documents', 'description' => 'Upload externally prepared CTS documents and track review.', 'route' => 'cts.index'],
+            ['label' => 'Property listings', 'description' => 'Read-only property and lot availability.', 'route' => 'inventory.index'],
+            ['label' => 'Employee management', 'description' => 'Create and assign authorized office employee roles.', 'route' => 'employees.index'],
+            ['label' => 'CTS (Contract to Sell)', 'description' => 'Prepare CTS documents for approved reservations.', 'route' => 'cts.index'],
+            ['label' => 'Sales reports', 'description' => 'Review confirmed sales and verified collections.', 'route' => 'reports.index'],
+        ],
+        'unit_manager' => [
+            ['label' => 'Property listings', 'description' => 'View available properties and lots.', 'route' => 'inventory.index'],
+            ['label' => 'Manage Agents', 'description' => 'Invite Agents with a fixed Agent role and supervise your team.', 'route' => 'agents.index'],
+            ['label' => 'Assign lots to Agents', 'description' => 'Assign each available lot to one Agent.', 'route' => 'assignments.index'],
+            ['label' => 'Reservation reviews', 'description' => 'Approve or reject your Agents’ reservations.', 'route' => 'reservations.index'],
+            ['label' => 'Sale confirmations', 'description' => 'Confirm final terms after CTS completion.', 'route' => 'sales.index'],
+            ['label' => 'Sales reports', 'description' => 'Review sales for your supervised team.', 'route' => 'reports.index'],
+        ],
+        'field_planner' => [
+            ['label' => 'Property management', 'description' => 'Create and maintain property and lot records.', 'route' => 'properties.index'],
+            ['label' => 'Landowner verification', 'description' => 'Verify seller identity and ownership information for CTS.', 'route' => 'cts.index'],
         ],
         'cashier' => [
-            ['label' => 'Property inventory', 'description' => 'View properties and current lot availability.', 'route' => 'inventory.index'],
-            ['label' => 'Payment records', 'description' => 'Record and verify actual payments and receipts.', 'route' => null],
-            ['label' => 'Installment schedules', 'description' => 'Confirm paid installments and monitor amounts due.', 'route' => null],
+            ['label' => 'Transactions & payments', 'description' => 'View balances and record verified payments received.', 'route' => 'sales.index'],
         ],
     ],
 ];

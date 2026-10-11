@@ -11,7 +11,7 @@ class LotPolicy
 {
     public function view(User $user, Lot $lot): bool
     {
-        return true;
+        return in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::Admin, UserRole::UnitManager], true);
     }
 
     public function create(User $user): bool

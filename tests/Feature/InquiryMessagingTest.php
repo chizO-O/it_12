@@ -61,7 +61,8 @@ class InquiryMessagingTest extends TestCase
         $this->actingAs($buyer)->post(route('inquiries.store', [$lot->property, $lot]), ['message' => 'Please help'])->assertRedirect();
         $inquiry = Inquiry::sole();
         $this->assertNull($inquiry->agent_id);
-        $this->actingAs($manager)->get(route('inquiries.index'))->assertOk()->assertSee('Awaiting assignment');
+        $this->actingAs($manager)->get(route('inquiries.index'))->assertForbidden();
+        $this->get(route('assignments.index'))->assertOk()->assertSee('1 inquiry awaiting assignment');
         $agent = User::factory()->create(['role' => 'agent', 'unit_manager_id' => $manager->id]);
         $this->patch(route('assignments.update', $lot), ['agent_id' => $agent->id])->assertRedirect();
         $this->assertSame($agent->id, $inquiry->fresh()->agent_id);

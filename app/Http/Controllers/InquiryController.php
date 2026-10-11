@@ -21,30 +21,25 @@ class InquiryController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager], true), 403);
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Agent], true), 403);
 
         $query = Inquiry::query()->with(['buyer:id,name', 'agent:id,name', 'lot.property']);
         if ($user->role === UserRole::Buyer) {
             $query->where('buyer_id', $user->id);
         } elseif ($user->role === UserRole::Agent) {
             $query->where('agent_id', $user->id);
-        } elseif ($user->role === UserRole::UnitManager) {
-            $query->whereNull('agent_id');
         }
 
         $inquiries = $query->orderByDesc('updated_at')->orderByDesc('id')->paginate(15);
-        $unread = [];
-        if ($user->role !== UserRole::UnitManager) {
-            $unread = DB::table('messages')->selectRaw('inquiry_id, COUNT(*) AS total')
-                ->whereIn('inquiry_id', $inquiries->getCollection()->pluck('id'))
-                ->where('sender_id', '!=', $user->id)->whereNull('read_at')
-                ->groupBy('inquiry_id')->pluck('total', 'inquiry_id')->all();
-        }
+        $unread = DB::table('messages')->selectRaw('inquiry_id, COUNT(*) AS total')
+            ->whereIn('inquiry_id', $inquiries->getCollection()->pluck('id'))
+            ->where('sender_id', '!=', $user->id)->whereNull('read_at')
+            ->groupBy('inquiry_id')->pluck('total', 'inquiry_id')->all();
 
         return view('inquiries.index', [
             'inquiries' => $inquiries,
             'unread' => $unread,
-            'notifications' => $user->unreadNotifications()->latest()->limit(10)->get(),
+            'notifications' => $user->unreadNotifications()->where('type', InquiryActivity::class)->latest()->limit(10)->get(),
         ]);
     }
 

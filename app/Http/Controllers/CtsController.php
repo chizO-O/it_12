@@ -29,7 +29,7 @@ class CtsController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        abort_if($user->role === UserRole::Cashier, 403);
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Admin, UserRole::FieldPlanner], true), 403);
 
         $records = CtsRecord::query()->with(['transaction.reservation.lot.property', 'transaction.reservation.buyer', 'initiator'])
             ->when($user->role === UserRole::Buyer, fn ($q) => $q->whereHas('transaction.reservation', fn ($r) => $r->where('buyer_id', $user->id)))
@@ -37,7 +37,15 @@ class CtsController extends Controller
             ->when($user->role === UserRole::UnitManager, fn ($q) => $q->whereHas('transaction.reservation.agent', fn ($a) => $a->where('unit_manager_id', $user->id)))
             ->latest('updated_at')->paginate(15);
 
-        return view('cts.index', compact('records'));
+        // Secretary can prepare a CTS directly from any approved reservation,
+        // without an extra Unit Manager initiation step.
+        $readyReservations = $user->role === UserRole::Admin
+            ? Reservation::query()->with(['buyer', 'lot.property'])
+                ->where('status', ReservationStatus::Approved->value)
+                ->whereDoesntHave('transaction')->latest()->get()
+            : collect();
+
+        return view('cts.index', compact('records', 'readyReservations'));
     }
 
     public function initiate(Request $request, Reservation $reservation): RedirectResponse
@@ -53,7 +61,7 @@ class CtsController extends Controller
                     throw ValidationException::withMessages(['cts' => 'CTS requires an approved reservation and a Reserved lot.']);
                 }
                 if ($locked->transaction()->exists()) {
-                    throw ValidationException::withMessages(['cts' => 'CTS tracking has already been started for this reservation.']);
+                    throw ValidationException::withMessages(['cts' => 'A CTS has already been opened for this reservation.']);
                 }
                 $transaction = new Transaction;
                 $transaction->reservation_id = $locked->id;
@@ -69,19 +77,39 @@ class CtsController extends Controller
                 return $cts;
             }, 3);
         } catch (UniqueConstraintViolationException) {
-            throw ValidationException::withMessages(['cts' => 'CTS tracking already exists for this reservation.']);
+            throw ValidationException::withMessages(['cts' => 'A CTS already exists for this reservation.']);
         }
-        $this->notifyRoles([UserRole::FieldPlanner, UserRole::Admin], $cts, 'CTS initiated. Property verification is needed.');
+        $this->notifyRoles([UserRole::FieldPlanner], $cts, 'A new CTS needs seller/landowner verification.');
 
-        return to_route('cts.show', $cts)->with('status', 'CTS tracking initiated. The Field Planner can now verify the property.');
+        return to_route('cts.show', $cts)->with('status', 'CTS preparation opened. The Field Planner can now verify the seller/landowner.');
     }
 
     public function show(Request $request, CtsRecord $cts): View
     {
         Gate::authorize('view', $cts);
-        $cts->load(['transaction.reservation.lot.property', 'transaction.reservation.buyer', 'transaction.reservation.agent', 'initiator', 'verifier']);
+        $cts->load(['transaction.reservation.lot.property', 'transaction.reservation.buyer', 'transaction.reservation.buyerForm', 'transaction.reservation.agent', 'initiator', 'verifier']);
 
         return view('cts.show', compact('cts'));
+    }
+
+    /** Buyer provides CTS-specific identity details, independently of locked contact details. */
+    public function buyerDetails(Request $request, CtsRecord $cts): RedirectResponse
+    {
+        Gate::authorize('editBuyerDetails', $cts);
+        $data = $request->validate([
+            'buyer_permanent_address' => ['required', 'string', 'max:1500'],
+            'buyer_marital_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Legally Separated', 'Divorced', 'Other'])],
+            'buyer_age' => ['required', 'integer', 'between:1,120'],
+            'buyer_nationality' => ['required', 'string', 'max:100'],
+        ]);
+        $this->change($cts, 'editBuyerDetails', function (CtsRecord $locked) use ($data) {
+            foreach ($data as $field => $value) {
+                $locked->{$field} = $value;
+            }
+            $locked->buyer_details_submitted_at ??= now();
+        });
+
+        return to_route('cts.show', $cts)->with('status', 'Your CTS buyer details were saved.');
     }
 
     public function verify(Request $request, CtsRecord $cts): RedirectResponse
@@ -89,22 +117,76 @@ class CtsController extends Controller
         Gate::authorize('verifyProperty', $cts);
         $data = $request->validate([
             'verified' => ['required', 'accepted'],
-            'verification_notes' => ['required', 'string', 'min:10', 'max:3000'],
+            'landowner_name' => ['required', 'string', 'max:200'],
+            'landowner_contact' => ['required', 'string', 'min:7', 'max:40'],
+            'landowner_address' => ['required', 'string', 'max:1500'],
+            'landowner_permanent_address' => ['required', 'string', 'max:1500'],
+            'landowner_marital_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Legally Separated', 'Divorced', 'Other'])],
+            'landowner_age' => ['required', 'integer', 'between:1,120'],
+            'landowner_nationality' => ['required', 'string', 'max:100'],
+            'landowner_relationship' => ['nullable', 'string', 'max:150'],
+            'verification_notes' => ['nullable', 'string', 'max:3000'],
         ]);
         $this->change($cts, 'verifyProperty', function (CtsRecord $locked) use ($request, $data) {
-            $locked->status = CtsStatus::PropertyVerified;
+            // Do not reset a CTS draft/review/signing status when landowner details are edited.
+            if ($locked->status === CtsStatus::Requested) {
+                $locked->status = CtsStatus::PropertyVerified;
+            }
             $locked->verified_by_id = $request->user()->id;
-            $locked->property_verified_at = now();
-            $locked->verification_notes = $data['verification_notes'];
+            $locked->property_verified_at ??= now();
+            $locked->landowner_name = $data['landowner_name'];
+            $locked->landowner_contact = $data['landowner_contact'];
+            $locked->landowner_address = $data['landowner_address'];
+            $locked->landowner_permanent_address = $data['landowner_permanent_address'] ?? null;
+            $locked->landowner_marital_status = $data['landowner_marital_status'] ?? null;
+            $locked->landowner_age = $data['landowner_age'] ?? null;
+            $locked->landowner_nationality = $data['landowner_nationality'] ?? null;
+            $locked->landowner_relationship = $data['landowner_relationship'] ?? null;
+            $locked->verification_notes = $data['verification_notes'] ?? null;
         });
-        $this->notifyRoles([UserRole::Admin], $cts, 'Property verification recorded. CTS draft may be uploaded.');
+        if ($cts->fresh()->status === CtsStatus::PropertyVerified) {
+            $this->notifyRoles([UserRole::Admin], $cts, 'Property verification recorded. CTS draft may be uploaded.');
+        }
 
-        return to_route('cts.show', $cts)->with('status', 'Property verification recorded.');
+        return to_route('cts.show', $cts)->with('status', 'Landowner verification information saved.');
+    }
+
+    /** Secretary records agreed contract facts; the executed PDF remains legally authoritative. */
+    public function prepare(Request $request, CtsRecord $cts): RedirectResponse
+    {
+        Gate::authorize('prepare', $cts);
+        $data = $request->validate([
+            'contract_price' => ['required', 'numeric', 'gt:0', 'decimal:0,2', 'max:999999999999.99'],
+            'ownership_agreement' => ['required', 'string', 'min:10', 'max:6000'],
+            'payment_agreement' => ['required', 'string', 'min:10', 'max:6000'],
+            'terms_verified' => ['required', 'accepted'],
+        ]);
+        $this->change($cts, 'prepare', function (CtsRecord $locked) use ($request, $data) {
+            $locked->contract_price = $data['contract_price'];
+            $locked->ownership_agreement = trim($data['ownership_agreement']);
+            $locked->payment_agreement = trim($data['payment_agreement']);
+            $locked->contract_prepared_by_id = $request->user()->id;
+            $locked->contract_prepared_at = now();
+        });
+
+        return to_route('cts.show', $cts)->with('status', 'CTS details saved. Upload the externally prepared PDF after landowner verification.');
     }
 
     public function uploadDraft(Request $request, CtsRecord $cts, PrivateCtsStorage $storage): RedirectResponse
     {
         Gate::authorize('uploadDraft', $cts);
+        if ($cts->contract_price === null || ! $cts->ownership_agreement || ! $cts->payment_agreement) {
+            throw ValidationException::withMessages(['cts' => 'Secretary must save the CTS price and agreement details before uploading the draft.']);
+        }
+        // New CTS drafts require both parties' relevant contract details.
+        // Existing draft versions remain accessible for legacy records and amendments.
+        if (! $cts->draft_path && (! $cts->buyer_details_submitted_at
+            || ! $cts->landowner_permanent_address || ! $cts->landowner_marital_status
+            || ! $cts->landowner_age || ! $cts->landowner_nationality)) {
+            throw ValidationException::withMessages([
+                'cts' => 'Buyer CTS details and complete Field Planner seller details are required before uploading the first draft.',
+            ]);
+        }
         $request->validate(['document' => ['required', 'file', 'mimes:pdf', 'max:10240']]);
         $path = $storage->upload($request->file('document'), $cts->id, 'draft');
         $this->change($cts, 'uploadDraft', function (CtsRecord $locked) use ($request, $path) {

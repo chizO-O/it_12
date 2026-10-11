@@ -28,7 +28,7 @@ class ReservationController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager, UserRole::Admin], true), 403);
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager], true), 403);
 
         $reservations = Reservation::query()->with(['lot.property', 'buyer:id,name', 'agent:id,name', 'reviewer:id,name'])
             ->when($user->role === UserRole::Buyer, fn ($query) => $query->where('buyer_id', $user->id))
@@ -44,7 +44,7 @@ class ReservationController extends Controller
 
     public function readNotifications(Request $request): RedirectResponse
     {
-        abort_unless(in_array($request->user()->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager, UserRole::Admin], true), 403);
+        abort_unless(in_array($request->user()->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager], true), 403);
         $request->user()->unreadNotifications()->where('type', ReservationActivity::class)->update(['read_at' => now()]);
 
         return to_route('reservations.index')->with('status', 'Reservation notifications marked as read.');

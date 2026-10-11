@@ -17,7 +17,7 @@ class InventoryTest extends TestCase
     use RefreshDatabase;
 
     #[DataProvider('roles')]
-    public function test_every_verified_role_can_browse_inventory_and_lot_details(string $role): void
+    public function test_only_listing_roles_can_browse_inventory_and_lot_details(string $role): void
     {
         $lot = Lot::factory()->create(['selling_price' => '654321.25', 'area_sqm' => '123.45', 'block_no' => 'B-2']);
         $property = $lot->property;
@@ -26,9 +26,7 @@ class InventoryTest extends TestCase
         $this->get(route('inventory.show', $property))->assertOk()->assertSee($lot->lot_no)->assertSee('Schematic lot layout')->assertSee('class="lot-parcel"', false)->assertSee('data-lot-dialog=', false)->assertSee('aria-labelledby="lot-heading-', false)->assertSee('do not represent a surveyed subdivision plan');
         $response = $this->get(route('inventory.lot', [$property, $lot]));
         $response->assertOk()->assertSee($property->name)->assertSee($property->location)->assertSee('B-2')->assertSee('123.45 m²')->assertSee('₱654,321.25')->assertSee('Available');
-        if ($role !== 'field_planner') {
-            $response->assertDontSee('Edit lot')->assertDontSee(route('properties.lots.edit', [$property, $lot]), false);
-        }
+        $response->assertDontSee('Edit lot')->assertDontSee(route('properties.lots.edit', [$property, $lot]), false);
     }
 
     public function test_the_map_uses_database_lot_details_and_keeps_saved_position_across_filters(): void
@@ -62,7 +60,7 @@ class InventoryTest extends TestCase
 
     public static function roles(): array
     {
-        return array_map(fn ($role) => [$role->value], UserRole::cases());
+        return [['buyer'], ['agent'], ['admin'], ['unit_manager']];
     }
 
     public function test_location_filters_show_only_properties_with_available_lots_by_default(): void
@@ -134,8 +132,12 @@ class InventoryTest extends TestCase
         $unsafe = '<script>alert("inventory")</script>';
         $property = Property::factory()->create(['name' => $unsafe, 'description' => $unsafe, 'address' => $unsafe]);
         $lot = Lot::factory()->for($property)->create(['lot_no' => $unsafe, 'block_no' => $unsafe]);
+        $this->actingAs(User::factory()->create(['role' => 'buyer']));
+        foreach ([route('inventory.index'), route('inventory.show', $property), route('inventory.lot', [$property, $lot])] as $path) {
+            $this->get($path)->assertOk()->assertSee($unsafe)->assertDontSee($unsafe, false);
+        }
         $this->actingAs(User::factory()->create(['role' => 'field_planner']));
-        foreach ([route('inventory.index'), route('inventory.show', $property), route('inventory.lot', [$property, $lot]), route('properties.show', $property), route('properties.edit', $property), route('properties.lots.edit', [$property, $lot])] as $path) {
+        foreach ([route('properties.show', $property), route('properties.edit', $property), route('properties.lots.edit', [$property, $lot])] as $path) {
             $this->get($path)->assertOk()->assertSee($unsafe)->assertDontSee($unsafe, false);
         }
     }

@@ -13,8 +13,7 @@ class CtsRecordPolicy
 {
     public function initiate(User $user, Reservation $reservation): bool
     {
-        return $user->role === UserRole::UnitManager
-            && $reservation->agent?->unit_manager_id === $user->id
+        return $user->role === UserRole::Admin
             && $reservation->status === ReservationStatus::Approved;
     }
 
@@ -34,9 +33,22 @@ class CtsRecordPolicy
         return $this->view($user, $cts) && $user->role !== UserRole::FieldPlanner;
     }
 
+    public function editBuyerDetails(User $user, CtsRecord $cts): bool
+    {
+        return $user->role === UserRole::Buyer
+            && $cts->transaction->reservation->buyer_id === $user->id
+            && $cts->status !== CtsStatus::Completed;
+    }
+
     public function verifyProperty(User $user, CtsRecord $cts): bool
     {
-        return $user->role === UserRole::FieldPlanner && $cts->status === CtsStatus::Requested;
+        return $user->role === UserRole::FieldPlanner && $cts->status !== CtsStatus::Completed;
+    }
+
+    public function prepare(User $user, CtsRecord $cts): bool
+    {
+        return $user->role === UserRole::Admin
+            && in_array($cts->status, [CtsStatus::Requested, CtsStatus::PropertyVerified, CtsStatus::RevisionRequested], true);
     }
 
     public function uploadDraft(User $user, CtsRecord $cts): bool

@@ -22,6 +22,7 @@ class LotAssignmentController extends Controller
     {
         return view('assignments.index', [
             'lots' => Lot::with(['property:id,name,location', 'assignedAgent:id,name,unit_manager_id'])
+                ->withCount(['inquiries as awaiting_assignment_count' => fn ($query) => $query->whereNull('agent_id')])
                 ->where('status', LotStatus::Available->value)
                 ->orderBy('property_id')->orderBy('lot_no')->paginate(20),
             'agents' => User::where('role', UserRole::Agent->value)

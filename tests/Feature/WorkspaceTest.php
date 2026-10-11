@@ -34,26 +34,20 @@ class WorkspaceTest extends TestCase
             $links[] = $link->getAttribute('href');
         }
 
-        $expected = [route($user->role->dashboardRoute()), route('account'), route('inventory.index')];
-        if (in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager], true)) {
-            $expected[] = route('inquiries.index');
-        }
-        if (in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager, UserRole::Admin], true)) {
-            $expected[] = route('reservations.index');
-        }
-        if ($user->role !== UserRole::Cashier) {
-            $expected[] = route('cts.index');
-        }
-        if ($user->role === UserRole::FieldPlanner) {
-            $expected[] = route('properties.index');
-        }
-        if ($user->role === UserRole::UnitManager) {
-            $expected[] = route('agents.index');
-            $expected[] = route('assignments.index');
-        }
-        if ($user->role === UserRole::Admin) {
-            $expected[] = route('employees.index');
-        }
+        // Expected URLs are listed independently of config/workspace.php, so this
+        // test catches accidental additions to the menu (not just missing items).
+        $byRole = [
+            'buyer' => ['inventory.index', 'inquiries.index', 'reservations.index', 'cts.index', 'sales.index'],
+            'agent' => ['inventory.index', 'inquiries.index', 'reservations.index'],
+            'admin' => ['inventory.index', 'employees.index', 'cts.index', 'reports.index'],
+            'unit_manager' => ['inventory.index', 'agents.index', 'assignments.index', 'reservations.index', 'sales.index', 'reports.index'],
+            'field_planner' => ['properties.index', 'cts.index'],
+            'cashier' => ['sales.index'],
+        ];
+        $expected = array_map('route', array_merge(
+            [$user->role->dashboardRoute(), 'notifications.index', 'account'],
+            $byRole[$role],
+        ));
 
         $links = array_values(array_unique($links));
         sort($links);
@@ -120,12 +114,12 @@ public function test_agent_navigation_has_one_conversations_link_without_duplica
     public static function roles(): array
     {
         return [
-            ['buyer', 'Browse lots', 'Payment records'],
-            ['agent', 'Conversations', 'Payment records'],
-            ['unit_manager', 'Reservation reviews', 'Payment records'],
-            ['field_planner', 'Properties & lots', 'Payment records'],
-            ['admin', 'Employees', 'My buyers'],
-            ['cashier', 'Payment records', 'Reservation reviews'],
+            ['buyer', 'Property listings', 'Employee management'],
+            ['agent', 'Conversations', 'Sales reports'],
+            ['unit_manager', 'Reservation reviews', 'Employee management'],
+            ['field_planner', 'Property management', 'Sales reports'],
+            ['admin', 'Employee management', 'My payments'],
+            ['cashier', 'Transactions & payments', 'Reservation reviews'],
         ];
     }
 

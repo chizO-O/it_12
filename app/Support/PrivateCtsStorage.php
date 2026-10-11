@@ -5,6 +5,7 @@ namespace App\Support;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class PrivateCtsStorage
@@ -38,7 +39,13 @@ class PrivateCtsStorage
         ])->withBody($contents, 'application/pdf')
             ->timeout(30)->post("{$url}/storage/v1/object/{$bucket}/{$path}");
         if (! $response->successful()) {
-            throw ValidationException::withMessages(['document' => 'Unable to upload the CTS PDF to private storage. Try again.']);
+            // Deliberately never log the service-role key, request headers, signed URL or document bytes.
+            Log::warning('CTS private Storage upload failed', [
+                'status' => $response->status(),
+                'error' => mb_substr((string) ($response->json('error') ?? $response->json('code') ?? ''), 0, 120),
+                'message' => mb_substr((string) ($response->json('message') ?? ''), 0, 200),
+            ]);
+            throw ValidationException::withMessages(['document' => 'Unable to upload the CTS PDF to private storage. Check the application log for the Storage status code.']);
         }
 
         return $path;

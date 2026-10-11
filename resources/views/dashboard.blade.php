@@ -4,15 +4,26 @@
         <div class="rounded-3xl bg-emerald-950 p-7 text-white sm:p-10">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">{{ $workspace }} workspace · {{ auth()->user()->role->label() }}</p>
             <h1 class="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Welcome, {{ auth()->user()->name }}.</h1>
-            <p class="mt-4 max-w-2xl leading-relaxed text-emerald-100">Your GroveMap account is ready. This is your home for the property journey.</p>
+            <p class="mt-4 max-w-2xl leading-relaxed text-emerald-100">Only the tools authorized for your role appear below. Important updates are available in Notifications.</p>
         </div>
         <div class="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-6">
             <div><h2 class="font-semibold text-emerald-950">My account</h2><p class="mt-1 text-sm text-stone-500">{{ auth()->user()->email }} · Email verified</p></div>
             <a href="{{ route('account') }}" class="btn-secondary">View account</a>
         </div>
+        <section class="mt-8" aria-label="Current workspace summary">
+            <h2 class="mb-4 text-lg font-semibold text-emerald-950">Workspace at a glance</h2>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach($metrics as $label => $count)
+                    <div class="rounded-2xl border border-stone-200 bg-white p-5">
+                        <p class="text-sm text-stone-600">{{ $label }}</p>
+                        <p class="mt-2 text-3xl font-semibold text-emerald-950">{{ number_format($count) }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </section>
         <div class="mb-5 mt-10">
             <h2 class="text-xl font-semibold text-emerald-950">Workspace tools</h2>
-            <p class="mt-2 text-sm text-stone-500">Tools marked coming soon will be available as GroveMap grows.</p>
+            <p class="mt-2 text-sm text-stone-500">Select an authorized tool below. Notifications and My Account are available from the sidebar.</p>
         </div>
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             @foreach($modules as $module)

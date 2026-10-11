@@ -16,6 +16,9 @@
                         <p class="eyebrow">{{ $lot->property->location }} · {{ $lot->property->name }}</p>
                         <h2 class="mt-2 font-semibold text-lg">Lot {{ $lot->lot_no }} @if($lot->block_no) · Block {{ $lot->block_no }} @endif</h2>
                         <p class="text-sm text-stone-500">Current Agent: {{ $lot->assignedAgent?->name ?? 'Unassigned' }}</p>
+                        @if($lot->awaiting_assignment_count > 0)
+                            <p class="mt-2 text-sm font-semibold text-amber-800">{{ $lot->awaiting_assignment_count }} {{ (int) $lot->awaiting_assignment_count === 1 ? 'inquiry' : 'inquiries' }} awaiting assignment</p>
+                        @endif
                     </div>
                     <form method="POST" action="{{ route('assignments.update', $lot) }}" class="flex flex-wrap items-end gap-3">
                         @csrf @method('PATCH')

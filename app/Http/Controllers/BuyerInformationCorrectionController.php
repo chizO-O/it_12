@@ -107,6 +107,9 @@ class BuyerInformationCorrectionController extends Controller
         ]);
         LockedReservationInformation::run($reservation, function (Reservation $locked) use ($request, $correction, $data) {
             Gate::authorize('reviewCorrection', $locked);
+            if ($data['decision'] === 'approve' && $locked->transaction?->ctsRecord?->status === \App\Enums\CtsStatus::Completed) {
+                throw ValidationException::withMessages(['correction' => 'CTS has been completed. Existing buyer information cannot be amended through the normal workflow.']);
+            }
             $current = $locked->informationCorrections()->whereKey($correction->id)->lockForUpdate()->firstOrFail();
             if ($current->status !== 'pending') {
                 throw ValidationException::withMessages(['correction' => 'This correction has already been reviewed.']);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SaveBuyerAssessmentRequest;
 use App\Models\BuyerAssessment;
+use App\Models\CtsRecord;
 use App\Models\Reservation;
 use App\Support\BuyerAssessmentData;
 use App\Support\LockedReservationInformation;
@@ -15,6 +16,13 @@ class BuyerAssessmentController extends Controller
     public function update(SaveBuyerAssessmentRequest $request, Reservation $reservation): RedirectResponse
     {
         LockedReservationInformation::run($reservation, function (Reservation $locked) use ($request) {
+            // Serialize assessment changes against the CTS completion transition.
+            $transaction = $locked->transaction;
+            if ($transaction && $transaction->ctsRecord) {
+                $record = CtsRecord::whereKey($transaction->ctsRecord->id)->lockForUpdate()->firstOrFail();
+                $transaction->setRelation('ctsRecord', $record);
+                $locked->setRelation('transaction', $transaction);
+            }
             Gate::authorize('updateAssessment', $locked);
             $assessment = $locked->buyerAssessment()->lockForUpdate()->first() ?? new BuyerAssessment;
             $assessment->reservation_id = $locked->id;

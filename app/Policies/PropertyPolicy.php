@@ -10,7 +10,7 @@ class PropertyPolicy
 {
     public function view(User $user, Property $property): bool
     {
-        return true;
+        return in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::Admin, UserRole::UnitManager], true);
     }
 
     public function viewAny(User $user): bool

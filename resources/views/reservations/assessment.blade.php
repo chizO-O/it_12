@@ -3,6 +3,7 @@
         $assessment = $reservation->buyerAssessment;
         $internal = auth()->user()->can('viewAssessment', $reservation);
         $editable = auth()->user()->can('updateAssessment', $reservation);
+        $editingAssessment = $editable && (! $assessment || request()->boolean('edit_assessment') || $errors->getBag('assessment')->any());
     @endphp
     <section class="mt-6 rounded-2xl border border-stone-200 bg-white p-6">
         <h2 class="font-semibold text-emerald-950">{{ $internal ? 'Buyer Assessment' : 'Facts Recorded by Your Agent' }}</h2>
@@ -12,7 +13,7 @@
         @else
             <p class="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">No assessment has been recorded. Employment, income, and payment preferences have not been provided.</p>
         @endif
-        @if($editable)
+        @if($editingAssessment)
             <form method="POST" action="{{ route('reservations.assessment', $reservation) }}" class="mt-5 space-y-5" data-assessment-form>
                 @csrf @method('PUT')
                 <x-form-errors bag="assessment" />
@@ -33,12 +34,17 @@
                 <x-textarea-field name="additional_clarifications" label="Buyer requirements or clarifications (optional)" :value="$assessment?->additional_clarifications" error-bag="assessment" rows="3" maxlength="4000" />
                 <div class="border-t border-stone-100 pt-5"><x-textarea-field name="agent_remarks" label="Internal Agent assessment remarks (optional)" :value="$assessment?->agent_remarks" error-bag="assessment" rows="4" maxlength="4000" /><p class="mt-2 text-xs text-stone-500">Visible only to the assigned Agent and authorized Unit Manager. Keep Buyer-reported facts in the fields above.</p></div>
                 <label class="flex items-start gap-3 text-sm leading-6"><input type="checkbox" name="privacy_notice_confirmed" value="1" class="mt-1 size-4 accent-emerald-800" required @checked(old('privacy_notice_confirmed') === '1')><span>I explained the privacy notice and correction process to the Buyer.</span></label>
-                <button class="btn-primary">Save Assessment</button>
+                <div class="flex flex-wrap gap-3"><button class="btn-primary">{{ $assessment ? 'Save Changes' : 'Submit Buyer Assessment' }}</button>
+                @if($assessment)<a class="btn-secondary" href="{{ route('reservations.show', $reservation) }}">Cancel</a>@endif</div>
             </form>
         @elseif($assessment)
             <dl class="mt-5 grid gap-4 break-words text-sm sm:grid-cols-2">@foreach(\App\Models\BuyerAssessment::FACT_LABELS as $field => $label)<div><dt class="font-medium text-stone-500">{{ $label }}</dt><dd class="mt-1 whitespace-pre-wrap"><x-information-value :field="$field" :value="$assessment->getAttribute($field)" /></dd></div>@endforeach</dl>
             @if($internal)<div class="mt-5 border-t border-stone-100 pt-5"><h3 class="text-sm font-medium text-stone-500">Internal Agent assessment remarks</h3><p class="mt-2 whitespace-pre-wrap break-words text-sm">{{ $assessment->agent_remarks ?: 'Not provided' }}</p><p class="mt-3 text-xs text-stone-500">Privacy notice confirmed {{ $assessment->privacy_notice_given_at->format('M j, Y, g:i A') }}.</p></div>@endif
-            @if($reservation->status !== \App\Enums\ReservationStatus::Pending)<p class="mt-4 text-xs text-stone-500">Normal assessment editing is locked. Factual corrections require a recorded Unit Manager decision.</p>@endif
+            @if($editable)
+                <a class="btn-secondary mt-5 inline-flex" href="{{ route('reservations.show', [$reservation, 'edit_assessment' => 1]) }}">Edit Information</a>
+            @else
+                <p class="mt-4 text-xs text-stone-500">Assessment information is read-only. Editing is unavailable after CTS completion or when the reservation is no longer active; factual corrections require authorized review.</p>
+            @endif
         @endif
     </section>
 @endcan

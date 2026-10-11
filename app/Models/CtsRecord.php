@@ -20,6 +20,11 @@ class CtsRecord extends Model
             'executed_uploaded_at' => 'datetime',
             'notarized_at' => 'date',
             'completed_at' => 'datetime',
+            'contract_price' => 'decimal:2',
+            'contract_prepared_at' => 'datetime',
+            'buyer_details_submitted_at' => 'datetime',
+            'buyer_age' => 'integer',
+            'landowner_age' => 'integer',
         ];
     }
 

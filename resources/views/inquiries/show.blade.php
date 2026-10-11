@@ -1,5 +1,5 @@
 <x-workspace :title="'Inquiry for Lot '.$inquiry->lot->lot_no">
-    <a href="{{ route('inquiries.index') }}" class="text-link text-sm">← Back to messages</a>
+    <a href="{{ route('inquiries.index') }}" class="text-link text-sm">← Back to conversations</a>
     <div class="my-6">
         <p class="eyebrow">{{ $inquiry->lot->property->location }} · {{ $inquiry->lot->property->name }}</p>
         <h1 class="mt-2 break-words text-2xl font-semibold text-emerald-950">Conversation about Lot {{ $inquiry->lot->lot_no }}</h1>
@@ -32,7 +32,7 @@
             @foreach($messages->getCollection()->reverse() as $message)
                 <article class="flex {{ $message->sender_id === auth()->id() ? 'justify-end' : 'justify-start' }}" data-message-id="{{ $message->id }}">
                     <div class="max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm {{ $message->sender_id === auth()->id() ? 'bg-emerald-900 text-white' : 'bg-stone-100 text-stone-800' }}">
-                        <p class="text-xs font-semibold opacity-70">{{ $message->sender->name }} · {{ $message->created_at->format('M j, g:i A') }}</p>
+                        <p class="text-xs font-semibold opacity-70">{{ $message->sender->name }} · {{ $message->created_at->copy()->timezone('Asia/Manila')->format('M j, g:i A').' PHT' }}</p>
                         <p class="mt-2 whitespace-pre-wrap">{{ $message->body }}</p>
                     </div>
                 </article>

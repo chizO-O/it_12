@@ -26,11 +26,17 @@ class ReservationPolicy
 
     public function updateAssessment(User $user, Reservation $reservation): bool
     {
-        return $this->isAssignedAgent($user, $reservation) && $reservation->status === ReservationStatus::Pending;
+        return $this->isAssignedAgent($user, $reservation)
+            && in_array($reservation->status, [ReservationStatus::Pending, ReservationStatus::Approved], true)
+            && $reservation->transaction?->ctsRecord?->status !== \App\Enums\CtsStatus::Completed;
     }
 
     public function requestCorrection(User $user, Reservation $reservation): bool
     {
+        if ($reservation->transaction?->ctsRecord?->status === \App\Enums\CtsStatus::Completed) {
+            return false;
+        }
+
         return $this->isBuyer($user, $reservation)
             || ($this->isAssignedAgent($user, $reservation) && $reservation->status !== ReservationStatus::Pending);
     }

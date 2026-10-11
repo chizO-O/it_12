@@ -63,7 +63,7 @@
                                     $centerY = $y + 63;
                                     $labelId = $layoutId.'-label-'.$lot->id;
                                 @endphp
-                                <a href="{{ route('inventory.lot', [$property, $lot]) }}" class="lot-parcel" data-lot-id="{{ $lot->id }}" data-property-id="{{ $property->id }}" data-grid-row="{{ $row + 1 }}" data-grid-column="{{ $column + 1 }}" data-parcel-status="{{ $lot->status->value }}" data-lot-dialog="lot-details-{{ $lot->id }}" aria-haspopup="dialog" aria-label="Lot {{ $lot->lot_no }}, {{ $blockLabel }}, {{ $lot->area_sqm }} square meters, {{ $lot->status->label() }}, PHP {{ $lot->selling_price }}" tabindex="0">
+                                <a href="{{ $layoutId === 'management-layout' ? route('properties.show', $property) : route('inventory.lot', [$property, $lot]) }}" class="lot-parcel" data-lot-id="{{ $lot->id }}" data-property-id="{{ $property->id }}" data-grid-row="{{ $row + 1 }}" data-grid-column="{{ $column + 1 }}" data-parcel-status="{{ $lot->status->value }}" data-lot-dialog="lot-details-{{ $lot->id }}" aria-haspopup="dialog" aria-label="Lot {{ $lot->lot_no }}, {{ $blockLabel }}, {{ $lot->area_sqm }} square meters, {{ $lot->status->label() }}, PHP {{ $lot->selling_price }}" tabindex="0">
                                     <title>Lot {{ $lot->lot_no }} · {{ $lot->area_sqm }} m² · {{ $lot->status->label() }} · ₱{{ number_format((float) $lot->selling_price, 2) }}</title>
                                     <polygon points="{{ $points }}" class="lot-parcel-shape" />
                                     <clipPath id="{{ $labelId }}"><polygon points="{{ $points }}" /></clipPath>

@@ -16,7 +16,9 @@
                     <button class="btn-primary mt-3" type="submit">Chat with Agent</button>
                 </form>
             @endif
-            <a class="btn-secondary" href="{{ route('inventory.lot', [$property, $lot]) }}">Open details page</a>
+            @if(auth()->user()->role !== \App\Enums\UserRole::FieldPlanner)
+                <a class="btn-secondary" href="{{ route('inventory.lot', [$property, $lot]) }}">Open details page</a>
+            @endif
             <button type="button" data-close-dialog class="btn-secondary">Done</button>
         </div>
     </dialog>

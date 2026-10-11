@@ -138,10 +138,24 @@ class BuyerInformationWorkflowTest extends TestCase
         $this->assessment($agent, $reservation, ['preferred_payment_method' => 'spot_cash', 'requested_installment_months' => ['unnecessary'], 'proposed_down_payment' => ['unnecessary']]);
         $this->assertNull($record->fresh()->requested_installment_months);
         $this->assertNull($record->fresh()->proposed_down_payment);
-        $response = $this->actingAs($agent)->get(route('reservations.show', $reservation))->assertOk();
+        // A saved assessment opens in read-only mode, not as an editable form.
+        $summary = $this->actingAs($agent)
+            ->get(route('reservations.show', $reservation))
+            ->assertOk()
+            ->assertSee('Edit Information');
+        $summaryDocument = new DOMDocument;
+        @$summaryDocument->loadHTML($summary->getContent());
+        $this->assertSame(0, (new DOMXPath($summaryDocument))->query('//form[@data-assessment-form]')->length);
+
+        // The installment fields are only rendered on the Edit Information screen.
+        $response = $this->actingAs($agent)
+            ->get(route('reservations.show', [$reservation, 'edit_assessment' => 1]))
+            ->assertOk();
         $document = new DOMDocument;
         @$document->loadHTML($response->getContent());
-        $this->assertSame(1, (new DOMXPath($document))->query('//fieldset[@data-installment-fields and @hidden and @disabled]')->length);
+        $xpath = new DOMXPath($document);
+        $this->assertSame(1, $xpath->query('//form[@data-assessment-form]')->length);
+        $this->assertSame(1, $xpath->query('//fieldset[@data-installment-fields and @hidden and @disabled]')->length);
         $this->assessment($agent, $reservation, ['preferred_payment_method' => null]);
         $this->assertNull($record->fresh()->requested_installment_months);
     }
@@ -209,20 +223,46 @@ class BuyerInformationWorkflowTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $this->actingAs($admin)->get(route('reservations.show', $reservation))->assertOk()->assertSee('Buyer-provided address')->assertDontSee('Buyer Assessment')->assertDontSee('PHP 50,000–80,000')->assertDontSee('Internal remark: follow up privately.')->assertDontSee('Information Corrections')
             ->assertViewHas('reservation', fn ($item) => $item->buyerAssessment === null);
-        foreach ([route('inventory.show', [$lot->property, 'status' => 'all']), route('inventory.lot', [$lot->property, $lot]), route('reservations.index')] as $url) {
+        // Admins may browse property listings but may not access the general
+        // Reservations list under the final SGRE role permissions.
+        foreach ([route('inventory.show', [$lot->property, 'status' => 'all']), route('inventory.lot', [$lot->property, $lot])] as $url) {
             $this->get($url)->assertOk()->assertDontSee('PHP 50,000–80,000')->assertDontSee('Internal remark: follow up privately.');
         }
+        $this->get(route('reservations.index'))->assertForbidden();
     }
 
-    public function test_approved_assessments_are_locked_without_changing_approval_requirements(): void
+    public function test_agent_assessment_is_read_only_after_submission_editable_after_approval_and_locked_after_cts_completion(): void
     {
         extract($this->scenario());
         $this->contact($buyer, $reservation);
         $record = $this->assessment($agent, $reservation);
+        $this->actingAs($agent)->get(route('reservations.show', $reservation))
+            ->assertOk()->assertSee('Edit Information')->assertDontSee('data-assessment-form', false);
+        $this->get(route('reservations.show', [$reservation, 'edit_assessment' => 1]))
+            ->assertOk()->assertSee('Save Changes')->assertSee('Cancel')->assertSee('data-assessment-form', false);
         $this->approve($manager, $reservation);
-        $this->actingAs($agent)->put(route('reservations.assessment', $reservation), ['employment_status' => 'Forged', 'privacy_notice_confirmed' => 1])->assertForbidden();
-        $this->get(route('reservations.show', $reservation))->assertOk()->assertSee('Normal assessment editing is locked')->assertDontSee('Save Assessment');
-        $this->assertSame('Self-employed', $record->fresh()->employment_status);
+        $this->actingAs($agent)->put(route('reservations.assessment', $reservation), [
+            'employment_status' => 'Employed', 'privacy_notice_confirmed' => 1,
+        ])->assertRedirect();
+        $this->assertSame('Employed', $record->fresh()->employment_status);
+
+        $transaction = new \App\Models\Transaction;
+        $transaction->reservation_id = $reservation->id;
+        $transaction->status = 'cts_completed';
+        $transaction->save();
+        $cts = new \App\Models\CtsRecord;
+        $cts->transaction_id = $transaction->id;
+        $cts->initiated_by_id = $manager->id;
+        $cts->status = \App\Enums\CtsStatus::Completed;
+        $cts->completed_at = now();
+        $cts->save();
+
+        $this->actingAs($agent)->put(route('reservations.assessment', $reservation), [
+            'employment_status' => 'Forged', 'privacy_notice_confirmed' => 1,
+        ])->assertForbidden();
+        $this->get(route('reservations.show', [$reservation, 'edit_assessment' => 1]))
+            ->assertOk()->assertSee('Assessment information is read-only')->assertDontSee('data-assessment-form', false);
+        $this->assertSame('Employed', $record->fresh()->employment_status);
     }
 
     public function test_missing_assessment_is_displayed_and_does_not_add_a_new_approval_requirement(): void
@@ -235,14 +275,14 @@ class BuyerInformationWorkflowTest extends TestCase
         $this->assertDatabaseCount('buyer_assessments', 0);
     }
 
-    public function test_approval_after_initial_assessment_authorization_blocks_the_write(): void
+    public function test_cancellation_after_initial_assessment_authorization_blocks_the_write(): void
     {
         extract($this->scenario());
         $changed = false;
         Gate::after(function ($user, $ability, $result) use ($reservation, &$changed) {
             if ($ability === 'updateAssessment' && $result === true && ! $changed) {
                 $changed = true;
-                Reservation::whereKey($reservation->id)->update(['status' => 'approved']);
+                Reservation::whereKey($reservation->id)->update(['status' => 'cancelled']);
             }
         });
         $this->actingAs($agent)->put(route('reservations.assessment', $reservation), ['employment_status' => 'Stale', 'privacy_notice_confirmed' => 1])->assertForbidden();
