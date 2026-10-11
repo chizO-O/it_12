@@ -72,15 +72,43 @@
 }
 
 .lot-layout-canvas {
-    width: max(680px, 100%);
+    width: max(480px, 100%);
 }
 
-.lot-layout-block {
-    background: #d9ddbd;
+.neighborhood-road-edge {
+    fill: none;
+    stroke: #637563;
+    stroke-width: 58px;
+    stroke-linejoin: round;
+    stroke-linecap: round;
 }
 
-.lot-layout-block + .lot-layout-block {
-    border-top: 1px solid #a6b192;
+.neighborhood-road-surface {
+    fill: none;
+    stroke: #c2c5bc;
+    stroke-width: 46px;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+
+.neighborhood-block-capsule {
+    fill: #bccba7;
+    stroke: #526d57;
+    stroke-width: 5;
+}
+
+.neighborhood-block-capsule-inner {
+    fill: none;
+    stroke: #809575;
+    stroke-width: 2;
+}
+
+.neighborhood-block-name {
+    fill: #264630;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
 }
 
 [data-parcel-status="available"] { --parcel-color: #9ee69b; }

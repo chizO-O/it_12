@@ -50,31 +50,35 @@ class PropertyManagementTest extends TestCase
         $this->assertDatabaseCount('lots', 1);
     }
 
-    public function test_only_the_planner_can_save_unique_positions_for_a_property_block(): void
+    public function test_field_planner_does_not_choose_rows_or_columns_for_automatic_placement(): void
     {
         $property = Property::factory()->create();
         $this->actingAs($this->planner());
-        $this->post(route('properties.lots.store', $property), $this->lotInput([
-            'lot_no' => 'P-01', 'block_no' => 'A', 'grid_row' => 2, 'grid_column' => 5,
-        ]))->assertRedirect();
-        $first = $property->lots()->firstOrFail();
-        $this->assertSame(2, $first->grid_row);
-        $this->assertSame(5, $first->grid_column);
 
-        $this->postJson(route('properties.lots.store', $property), $this->lotInput([
-            'lot_no' => 'P-02', 'block_no' => ' a ', 'grid_row' => 2, 'grid_column' => 5,
-        ]))->assertUnprocessable()->assertJsonValidationErrors('grid_row');
-        $this->postJson(route('properties.lots.store', $property), $this->lotInput([
-            'lot_no' => 'P-02', 'block_no' => 'B', 'grid_row' => 2,
-        ]))->assertUnprocessable()->assertJsonValidationErrors('grid_column');
-        $this->postJson(route('properties.lots.store', $property), $this->lotInput([
-            'lot_no' => 'P-02', 'grid_row' => 41, 'grid_column' => 1,
-        ]))->assertUnprocessable()->assertJsonValidationErrors('grid_row');
+        $this->get(route('properties.lots.create', $property))->assertOk()
+            ->assertSee('Automatic lot placement')
+            ->assertDontSee('name="grid_row"', false)
+            ->assertDontSee('name="grid_column"', false);
+
         $this->post(route('properties.lots.store', $property), $this->lotInput([
-            'lot_no' => 'P-02', 'block_no' => 'B', 'grid_row' => 2, 'grid_column' => 5,
+            'lot_no' => '10', 'block_no' => '2',
+        ]))->assertRedirect();
+        $this->post(route('properties.lots.store', $property), $this->lotInput([
+            'lot_no' => '2', 'block_no' => '2',
         ]))->assertRedirect();
         $this->assertSame(2, $property->lots()->count());
-        $this->get(route('properties.show', $property))->assertOk()->assertSee('data-grid-row="2"', false);
+        $this->assertTrue($property->lots()->get()->every(fn ($lot) => $lot->grid_row === null && $lot->grid_column === null));
+
+        foreach ([['grid_row' => 1], ['grid_column' => 3], ['grid_row' => 1, 'grid_column' => 2]] as $forged) {
+            $this->postJson(route('properties.lots.store', $property), $this->lotInput(array_merge([
+                'lot_no' => '3', 'block_no' => '2',
+            ], $forged)))->assertUnprocessable()->assertJsonValidationErrors(array_keys($forged));
+        }
+
+        $this->get(route('properties.show', $property))->assertOk()
+            ->assertSee('data-auto-position="block-lot"', false)
+            ->assertSee('Block 2');
+        $this->assertSame(2, $property->lots()->count());
     }
 
     public static function nonPlannerRoles(): array

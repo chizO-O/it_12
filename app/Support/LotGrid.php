@@ -5,9 +5,9 @@ namespace App\Support;
 use Illuminate\Support\Collection;
 
 /**
- * Produces stable schematic positions from the property's entire lot inventory.
- * Explicit positions are stored on the lot; unpositioned lots fill the unused cells.
- * Positions do not describe surveyed land boundaries.
+ * Automatically groups and arranges lots by their block and natural lot number.
+ * This is a schematic ordering, never a survey or a physical lot location.
+ * Existing legacy grid_row/grid_column values are intentionally ignored.
  */
 class LotGrid
 {
@@ -18,51 +18,55 @@ class LotGrid
         return $normalized === '' ? 'unassigned' : 'block:'.$normalized;
     }
 
+    public static function compareBlockKeys(string $left, string $right): int
+    {
+        if ($left === 'unassigned') {
+            return $right === 'unassigned' ? 0 : 1;
+        }
+
+        if ($right === 'unassigned') {
+            return -1;
+        }
+
+        return strnatcasecmp(substr($left, 6), substr($right, 6));
+    }
+
     /**
-     * @param  Collection<int, \App\Models\Lot>  $lots  Every lot in the property, regardless of status/page
+     * @param  Collection<int, \App\Models\Lot>  $lots All lots of the property, regardless of status/page
      * @return array{positions: array<int, array{row: int, column: int}>, blocks: array<string, array{columns: int, rows: int}>}
      */
     public static function build(Collection $lots): array
     {
         $result = ['positions' => [], 'blocks' => []];
 
-        foreach ($lots->groupBy(fn ($lot) => self::blockKey($lot->block_no)) as $block => $blockLots) {
-            $columns = min(12, max(6, (int) ceil($blockLots->count() / 2), (int) $blockLots->max('grid_column')));
-            $occupied = [];
-            $maxRow = 0;
+        $blocks = $lots->groupBy(fn ($lot) => self::blockKey($lot->block_no))
+            ->sortKeysUsing([self::class, 'compareBlockKeys']);
 
-            // Reserve manually assigned cells before placing automatically arranged lots.
-            foreach ($blockLots as $lot) {
-                if ($lot->grid_row === null || $lot->grid_column === null) {
-                    continue;
-                }
+        foreach ($blocks as $block => $blockLots) {
+            // Stable natural-number sorting, independent of insertion order, status and pagination.
+            $sortedLots = $blockLots->sort(function ($first, $second): int {
+                $numberOrder = strnatcasecmp(trim($first->lot_no), trim($second->lot_no));
 
-                $row = (int) $lot->grid_row - 1;
-                $column = (int) $lot->grid_column - 1;
-                $occupied[$row.':'.$column] = true;
+                return $numberOrder !== 0 ? $numberOrder : ($first->id <=> $second->id);
+            })->values();
+
+            // Compact layout: a small block is not forced into six empty columns.
+            $count = $sortedLots->count();
+            // Never allocate more columns than there are real lots. In particular,
+            // a one-lot block must occupy exactly one column, not two.
+            $columns = min($count, 10, max(1, (int) ceil(sqrt($count * 1.6))));
+            $rows = (int) ceil($count / $columns);
+
+            foreach ($sortedLots as $index => $lot) {
+                $row = intdiv($index, $columns);
+                $offset = $index % $columns;
+                // Snake rows make sequential lot numbers visually adjacent at row turns.
+                $column = $row % 2 === 0 ? $offset : $columns - 1 - $offset;
+
                 $result['positions'][$lot->id] = ['row' => $row, 'column' => $column];
-                $maxRow = max($maxRow, $row);
             }
 
-            $slot = 0;
-            foreach ($blockLots as $lot) {
-                if (isset($result['positions'][$lot->id])) {
-                    continue;
-                }
-
-                while (isset($occupied[intdiv($slot, $columns).':'.($slot % $columns)])) {
-                    $slot++;
-                }
-
-                $row = intdiv($slot, $columns);
-                $column = $slot % $columns;
-                $occupied[$row.':'.$column] = true;
-                $result['positions'][$lot->id] = ['row' => $row, 'column' => $column];
-                $maxRow = max($maxRow, $row);
-                $slot++;
-            }
-
-            $result['blocks'][$block] = ['columns' => $columns, 'rows' => $maxRow + 1];
+            $result['blocks'][$block] = ['columns' => $columns, 'rows' => $rows];
         }
 
         return $result;

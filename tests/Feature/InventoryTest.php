@@ -29,33 +29,73 @@ class InventoryTest extends TestCase
         $response->assertDontSee('Edit lot')->assertDontSee(route('properties.lots.edit', [$property, $lot]), false);
     }
 
-    public function test_the_map_uses_database_lot_details_and_keeps_saved_position_across_filters(): void
+    public function test_the_map_auto_places_lots_by_natural_number_and_ignores_old_manual_cells(): void
     {
         $property = Property::factory()->create();
-        $available = Lot::factory()->for($property)->create([
-            'lot_no' => 'PERSISTENT-LOT', 'grid_row' => 3, 'grid_column' => 4,
+        $lotTen = Lot::factory()->for($property)->create([
+            'lot_no' => '10', 'block_no' => '2', 'grid_row' => 3, 'grid_column' => 4,
             'area_sqm' => '135.50', 'selling_price' => '456789.25',
         ]);
-        $reserved = Lot::factory()->for($property)->create([
-            'lot_no' => 'RESERVED-LOT', 'grid_row' => 1, 'grid_column' => 2, 'status' => LotStatus::Reserved,
+        $lotTwo = Lot::factory()->for($property)->create([
+            'lot_no' => '2', 'block_no' => '2', 'grid_row' => 8, 'grid_column' => 9,
+            'status' => LotStatus::Reserved,
+        ]);
+        $lotThree = Lot::factory()->for($property)->create([
+            'lot_no' => '3', 'block_no' => '2', 'status' => LotStatus::Sold,
         ]);
         $this->actingAs(User::factory()->create());
 
-        $availableView = $this->get(route('inventory.show', $property));
-        $availableView->assertOk()
-            ->assertSee('data-lot-id="'.$available->id.'"', false)
-            ->assertSee('data-grid-row="3"', false)->assertSee('data-grid-column="4"', false)
-            ->assertSee('₱456,789.25')->assertDontSee('RESERVED-LOT');
+        $available = $this->get(route('inventory.show', $property))->assertOk()
+            ->assertSee('data-auto-position="block-lot"', false)
+            ->assertSee('₱456,789.25')
+            ->assertDontSee('data-lot-id="'.$lotTwo->id.'"', false);
 
-        $allView = $this->get(route('inventory.show', [$property, 'status' => 'all']));
-        $allView->assertOk()->assertSee('PERSISTENT-LOT')->assertSee('RESERVED-LOT')
-            ->assertSee('data-grid-row="3"', false)->assertSee('data-grid-column="4"', false)
-            ->assertSee('data-grid-row="1"', false)->assertSee('data-grid-column="2"', false);
+        $this->assertSame('3', $this->parcelAttribute($available->getContent(), $lotTen->id, 'data-grid-column'));
+        $all = $this->get(route('inventory.show', [$property, 'status' => 'all']))->assertOk();
+        $this->assertSame('1', $this->parcelAttribute($all->getContent(), $lotTwo->id, 'data-grid-column'));
+        $this->assertSame('2', $this->parcelAttribute($all->getContent(), $lotThree->id, 'data-grid-column'));
+        $this->assertSame('3', $this->parcelAttribute($all->getContent(), $lotTen->id, 'data-grid-column'));
 
-        $available->update(['selling_price' => '550000.00']);
-        $this->get(route('inventory.show', $property))->assertOk()->assertSee('₱550,000.00')->assertDontSee('₱456,789.25');
-        $this->assertSame([3, 4], [$available->fresh()->grid_row, $available->fresh()->grid_column]);
-        $this->assertSame('reserved', $reserved->fresh()->status->value);
+        $lotTen->update(['selling_price' => '550000.00']);
+        $this->get(route('inventory.show', $property))->assertOk()->assertSee('₱550,000.00');
+        // Legacy saved row/column data is preserved in the database but not used for placement.
+        $this->assertSame([3, 4], [$lotTen->fresh()->grid_row, $lotTen->fresh()->grid_column]);
+        $this->assertSame('reserved', $lotTwo->fresh()->status->value);
+    }
+
+    public function test_all_blocks_render_within_one_neighborhood_svg_without_split_block_panels(): void
+    {
+        $property = Property::factory()->create();
+        $first = Lot::factory()->for($property)->create(['block_no' => '2', 'lot_no' => '1']);
+        $second = Lot::factory()->for($property)->create(['block_no' => '10', 'lot_no' => '2']);
+        $this->actingAs(User::factory()->create(['role' => 'buyer']));
+
+        $response = $this->get(route('inventory.show', [$property, 'status' => 'all']))->assertOk()
+            ->assertSee('data-neighborhood-map', false)
+            ->assertSee('ILLUSTRATIVE LANE')
+            ->assertDontSee('class="lot-layout-block"', false)
+            ->assertSee('class="neighborhood-block-capsule"', false);
+
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+
+        $this->assertSame(1, $xpath->query('//*[@data-neighborhood-map]')->length);
+        $this->assertSame(2, $xpath->query('//*[@data-neighborhood-map]//*[@data-lot-id]')->length);
+        $this->assertSame('block-lot', $this->parcelAttribute($response->getContent(), $first->id, 'data-auto-position'));
+        $this->assertSame('block-lot', $this->parcelAttribute($response->getContent(), $second->id, 'data-auto-position'));
+    }
+
+    private function parcelAttribute(string $html, int $lotId, string $attribute): string
+    {
+        $document = new \DOMDocument;
+        @$document->loadHTML($html);
+        // The lot exists twice in HTML on purpose: one clickable map parcel and
+        // one accessible details dialog. Verify only the neighborhood parcel.
+        $matches = (new \DOMXPath($document))->query('//*[@data-neighborhood-map]//*[@data-lot-id="'.$lotId.'"]');
+        $this->assertSame(1, $matches->length);
+
+        return $matches->item(0)->getAttribute($attribute);
     }
 
     public static function roles(): array
