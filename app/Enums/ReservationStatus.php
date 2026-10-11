@@ -13,7 +13,7 @@ enum ReservationStatus: string
     {
         return match ($this) {
             self::Pending => 'Pending review',
-            self::Approved => 'Approved for CTS processing',
+            self::Approved => 'Eligible for sale',
             self::Rejected => 'Rejected',
             self::Cancelled => 'Cancelled',
         };

@@ -12,8 +12,8 @@
 
     @if(auth()->user()->role === \App\Enums\UserRole::Admin && $readyReservations->isNotEmpty())
         <section class="mb-7 rounded-2xl border border-emerald-200 bg-white p-6">
-            <h2 class="text-lg font-semibold text-emerald-950">Approved reservations — prepare CTS</h2>
-            <p class="mt-2 text-sm text-stone-600">You only need to choose the approved buyer/reservation. The buyer's name and lot are filled in automatically; no additional Unit Manager initiation is needed.</p>
+            <h2 class="text-lg font-semibold text-emerald-950">Older approved reservations without CTS records</h2>
+            <p class="mt-2 text-sm text-stone-600">New Unit Manager approvals automatically create a CTS record. The entries below are historical approvals that may need a one-time Secretary-only recovery; no additional Unit Manager action is required.</p>
             <div class="mt-4 space-y-3">
                 @foreach($readyReservations as $reservation)
                     <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 p-4">
@@ -23,7 +23,7 @@
                         </div>
                         <form method="POST" action="{{ route('cts.initiate', $reservation) }}">
                             @csrf
-                            <button class="btn-primary" type="submit">Prepare CTS</button>
+                            <button class="btn-primary" type="submit">Open legacy CTS record</button>
                         </form>
                     </div>
                 @endforeach
@@ -56,7 +56,7 @@
             @empty
                 <div class="rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center">
                     <h3 class="font-semibold text-emerald-950">No CTS documents yet</h3>
-                    <p class="mt-2 text-sm text-stone-500">{{ auth()->user()->role === \App\Enums\UserRole::Buyer ? 'Your Contract to Sell record will appear after the office opens it for your approved lot. Complete your Buyer CTS details before the Secretary finalizes the document.' : 'The Secretary/Admin can prepare a CTS for an approved reservation.' }}</p>
+                    <p class="mt-2 text-sm text-stone-500">{{ auth()->user()->role === \App\Enums\UserRole::Buyer ? 'After Unit Manager eligibility approval, your CTS record appears automatically. Submit your name and identity details before the Secretary drafts the contract.' : 'The Secretary/Admin can prepare a CTS for an approved reservation.' }}</p>
                 </div>
             @endforelse
         </div>

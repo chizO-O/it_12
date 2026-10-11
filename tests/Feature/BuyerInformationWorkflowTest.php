@@ -246,13 +246,19 @@ class BuyerInformationWorkflowTest extends TestCase
         ])->assertRedirect();
         $this->assertSame('Employed', $record->fresh()->employment_status);
 
-        $transaction = new \App\Models\Transaction;
-        $transaction->reservation_id = $reservation->id;
+        // Unit Manager approval now creates exactly one transaction and CTS.
+        // Complete that existing record instead of inserting duplicates into the
+        // unique transactions.reservation_id relationship.
+        $transaction = $reservation->fresh()->transaction;
+        $this->assertNotNull($transaction);
+        $cts = $transaction->ctsRecord;
+        $this->assertNotNull($cts);
+        $this->assertSame($manager->id, $cts->initiated_by_id);
+        $this->assertDatabaseCount('transactions', 1);
+        $this->assertDatabaseCount('cts_records', 1);
+
         $transaction->status = 'cts_completed';
         $transaction->save();
-        $cts = new \App\Models\CtsRecord;
-        $cts->transaction_id = $transaction->id;
-        $cts->initiated_by_id = $manager->id;
         $cts->status = \App\Enums\CtsStatus::Completed;
         $cts->completed_at = now();
         $cts->save();

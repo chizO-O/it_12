@@ -28,10 +28,10 @@
                         <p class="eyebrow">{{ $reservation->lot->property->location }} · Lot {{ $reservation->lot->lot_no }}</p>
                         <h2 class="mt-2 text-lg font-semibold text-emerald-950">{{ $reservation->lot->property->name }}</h2>
                         <p class="mt-2 text-sm text-stone-600">Buyer: {{ $reservation->buyer->name }} · Agent: {{ $reservation->agent->name }}</p>
-                        <p class="mt-1 text-xs text-stone-500">Reserved {{ $reservation->created_at->format('M j, Y g:i A') }}</p>
+                        <p class="mt-1 text-xs text-stone-500">Reserved {{ $reservation->created_at->copy()->timezone('Asia/Manila')->format('M j, Y g:i A').' PHT' }}</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-3">
-                        <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $reservation->status->isActive() ? 'bg-amber-100 text-amber-900' : 'bg-stone-100 text-stone-700' }}">{{ $reservation->status->label() }}</span>
+                        <span class="rounded-full px-3 py-1 text-xs font-semibold {{ \App\Support\ReservationProgress::badgeClass($reservation) }}">{{ \App\Support\ReservationProgress::label($reservation) }}</span>
                         <a class="btn-primary" href="{{ route('reservations.show', $reservation) }}">View reservation</a>
                     </div>
                 </div>

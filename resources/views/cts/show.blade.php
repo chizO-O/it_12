@@ -17,7 +17,7 @@
         <section class="rounded-2xl border border-stone-200 bg-white p-6">
             <h2 class="font-semibold text-emerald-950">Contract preparation status</h2>
             <dl class="mt-4 space-y-3 text-sm">
-                <div class="flex justify-between gap-3"><dt class="text-stone-500">Reservation</dt><dd>#{{ $reservation->id }} · {{ $reservation->status->label() }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-stone-500">Reservation</dt><dd>#{{ $reservation->id }} · {{ \App\Support\ReservationProgress::label($reservation) }}</dd></div>
                 <div class="flex justify-between gap-3"><dt class="text-stone-500">Initiated</dt><dd>{{ $cts->created_at->format('M j, Y') }}</dd></div>
                 <div class="flex justify-between gap-3"><dt class="text-stone-500">Property verified</dt><dd>{{ $cts->property_verified_at?->format('M j, Y') ?? 'Pending' }}</dd></div>
                 <div class="flex justify-between gap-3"><dt class="text-stone-500">Draft version</dt><dd>{{ $cts->draft_version ?: 'Not uploaded' }}</dd></div>
@@ -79,17 +79,17 @@
 
     @php
         $buyerCanEdit = auth()->user()->can('editBuyerDetails', $cts);
-        $buyerEditing = $buyerCanEdit && (! $cts->buyer_details_submitted_at || request()->boolean('edit_buyer_details') || $errors->has('buyer_permanent_address') || $errors->has('buyer_age') || $errors->has('buyer_marital_status') || $errors->has('buyer_nationality'));
+        $buyerEditing = $buyerCanEdit && (! $cts->buyer_details_submitted_at || request()->boolean('edit_buyer_details') || $errors->has('buyer_full_name') || $errors->has('buyer_permanent_address') || $errors->has('buyer_age') || $errors->has('buyer_marital_status') || $errors->has('buyer_nationality'));
     @endphp
     @if($role === \App\Enums\UserRole::Buyer)
         <section class="mt-6 rounded-2xl border border-stone-200 bg-white p-6">
             <h2 class="font-semibold text-emerald-950">Buyer's Details — Contract to Sell</h2>
-            <p class="mt-2 text-sm text-stone-600">Your name comes from your verified GroveMap account. Please confirm the following information specifically for this lot's CTS. Only authorized CTS participants can view these details.</p>
+            <p class="mt-2 text-sm text-stone-600">Enter your legal name as it should appear on this lot's Contract to Sell and submit the remaining required details. Only authorized CTS participants can view these details.</p>
             @if($buyerEditing)
                 <form method="POST" action="{{ route('cts.buyer-details', $cts) }}" class="mt-5 space-y-4">
                     @csrf @method('PATCH')
                     <x-form-errors />
-                    <div><p class="mb-2 text-sm font-medium text-stone-700">Full name</p><p class="form-input">{{ $reservation->buyer->name }}</p></div>
+                    <x-form-field name="buyer_full_name" label="Buyer legal full name" :value="$cts->buyer_full_name ?: $reservation->buyer->name" maxlength="200" />
                     <x-textarea-field name="buyer_permanent_address" label="Permanent address" :value="$cts->buyer_permanent_address" :required="true" rows="2" maxlength="1500" />
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div><label for="buyer_marital_status" class="mb-2 block text-sm font-medium">Marital status</label><select id="buyer_marital_status" name="buyer_marital_status" class="form-input w-full" required><option value="">Select status</option>@foreach(['Single','Married','Widowed','Legally Separated','Divorced','Other'] as $status)<option value="{{ $status }}" @selected(old('buyer_marital_status', $cts->buyer_marital_status) === $status)>{{ $status }}</option>@endforeach</select></div>
@@ -100,7 +100,7 @@
                 </form>
             @elseif($cts->buyer_details_submitted_at)
                 <dl class="mt-5 grid gap-4 text-sm sm:grid-cols-2">
-                    @foreach(['buyer_permanent_address' => 'Permanent address', 'buyer_marital_status' => 'Marital status', 'buyer_age' => 'Age', 'buyer_nationality' => 'Nationality'] as $field => $label)
+                    @foreach(['buyer_full_name' => 'Legal full name', 'buyer_permanent_address' => 'Permanent address', 'buyer_marital_status' => 'Marital status', 'buyer_age' => 'Age', 'buyer_nationality' => 'Nationality'] as $field => $label)
                         <div><dt class="font-medium text-stone-500">{{ $label }}</dt><dd class="mt-1">{{ $cts->getAttribute($field) }}</dd></div>
                     @endforeach
                 </dl>
@@ -109,6 +109,38 @@
             @else
                 <p class="mt-4 text-sm text-stone-500">These details are locked after CTS completion.</p>
             @endif
+        </section>
+    @endif
+
+    @if($role === \App\Enums\UserRole::Admin)
+        <section class="mt-6 rounded-2xl border border-stone-200 bg-white p-6">
+            <h2 class="font-semibold text-emerald-950">Buyer and Seller — CTS compilation checklist</h2>
+            <p class="mt-2 text-sm text-stone-600">The Secretary can prepare the first draft only after both parties provide complete CTS details. Buyer and Field Planner submit them independently.</p>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div class="rounded-xl border p-4">
+                    <p class="font-semibold {{ $cts->buyer_details_submitted_at ? 'text-emerald-800' : 'text-amber-800' }}">Buyer: {{ $cts->buyer_details_submitted_at ? 'Submitted' : 'Awaiting submission' }}</p>
+                    @if($cts->buyer_details_submitted_at)
+                        <dl class="mt-3 space-y-2 text-sm">
+                            @foreach(['buyer_full_name' => 'Full name', 'buyer_permanent_address' => 'Permanent address', 'buyer_marital_status' => 'Marital status', 'buyer_age' => 'Age', 'buyer_nationality' => 'Nationality'] as $field => $label)
+                                <div><dt class="text-stone-500">{{ $label }}</dt><dd class="break-words">{{ $cts->getAttribute($field) ?: 'Not recorded' }}</dd></div>
+                            @endforeach
+                        </dl>
+                    @endif
+                </div>
+                <div class="rounded-xl border p-4">
+                    <p class="font-semibold {{ $cts->property_verified_at ? 'text-emerald-800' : 'text-amber-800' }}">Seller / Field Planner: {{ $cts->property_verified_at ? 'Submitted' : 'Awaiting verification' }}</p>
+                    @if($cts->property_verified_at)
+                        <dl class="mt-3 space-y-2 text-sm">
+                            @foreach(['landowner_name' => 'Full name', 'landowner_permanent_address' => 'Permanent address', 'landowner_marital_status' => 'Marital status', 'landowner_age' => 'Age', 'landowner_nationality' => 'Nationality'] as $field => $label)
+                                <div><dt class="text-stone-500">{{ $label }}</dt><dd class="break-words">{{ $cts->getAttribute($field) ?: 'Not recorded' }}</dd></div>
+                            @endforeach
+                        </dl>
+                    @endif
+                </div>
+            </div>
+            @unless($cts->partiesReady())
+                <p class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Waiting for complete buyer and seller details. CTS drafting is locked until both are ready.</p>
+            @endunless
         </section>
     @endif
 
@@ -180,6 +212,7 @@
     @endif
 
     @can('uploadDraft', $cts)
+        @if($cts->draft_path || $cts->partiesReady())
         <section class="mt-6 rounded-2xl border border-stone-200 bg-white p-6">
             <h2 class="font-semibold text-emerald-950">Secretary/Admin — upload CTS draft</h2>
             <p class="mt-2 text-sm text-stone-600">Upload the externally prepared Contract to Sell PDF (maximum 10 MB) after saving the agreed terms and after the Field Planner verifies the seller. A revised PDF is required if the Buyer requests changes.</p>
@@ -190,6 +223,7 @@
                 <button class="btn-primary">Upload and send for Buyer review</button>
             </form>
         </section>
+        @endif
     @endcan
 
     @can('review', $cts)

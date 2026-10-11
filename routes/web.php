@@ -81,8 +81,10 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
     Route::patch('/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])
         ->middleware('role:agent,unit_manager')->name('reservations.cancel');
 
-    // CTS: Secretary opens a record after Unit Manager reservation approval; legal execution is external.
+    // CTS: eligibility approval opens the record automatically; Secretary drafts only after both parties submit their details.
     Route::get('/cts', [CtsController::class, 'index'])->middleware('role:buyer,admin,field_planner')->name('cts.index');
+    Route::get('/reservations/{reservation}/cts', [CtsController::class, 'forReservation'])->name('cts.for-reservation');
+    // Legacy Secretary-only repair action for reservations approved before auto CTS creation.
     Route::post('/reservations/{reservation}/cts', [CtsController::class, 'initiate'])->middleware('role:admin')->name('cts.initiate');
     Route::get('/cts/{cts}', [CtsController::class, 'show'])->name('cts.show');
     Route::patch('/cts/{cts}/buyer-details', [CtsController::class, 'buyerDetails'])->middleware('role:buyer')->name('cts.buyer-details');

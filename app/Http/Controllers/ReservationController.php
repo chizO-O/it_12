@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CtsStatus;
 use App\Enums\LotStatus;
 use App\Enums\ReservationStatus;
 use App\Enums\UserRole;
@@ -12,6 +13,7 @@ use App\Models\Lot;
 use App\Models\Property;
 use App\Models\Reservation;
 use App\Models\User;
+use App\Notifications\CtsActivity;
 use App\Notifications\ReservationActivity;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -30,7 +32,7 @@ class ReservationController extends Controller
         $user = $request->user();
         abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Agent, UserRole::UnitManager], true), 403);
 
-        $reservations = Reservation::query()->with(['lot.property', 'buyer:id,name', 'agent:id,name', 'reviewer:id,name'])
+        $reservations = Reservation::query()->with(['lot.property', 'transaction', 'buyer:id,name', 'agent:id,name', 'reviewer:id,name'])
             ->when($user->role === UserRole::Buyer, fn ($query) => $query->where('buyer_id', $user->id))
             ->when($user->role === UserRole::Agent, fn ($query) => $query->where('agent_id', $user->id))
             ->when($user->role === UserRole::UnitManager, fn ($query) => $query->whereHas('agent', fn ($agents) => $agents->where('unit_manager_id', $user->id)))
@@ -178,11 +180,29 @@ class ReservationController extends Controller
             if ($locked->status === ReservationStatus::Rejected) {
                 $lot->status = LotStatus::Available;
                 $lot->save();
+            } else {
+                // Unit Manager's single approval is the eligibility decision.
+                // Opening the record here makes buyer and seller forms available immediately.
+                $transaction = $locked->transaction()->create(['status' => 'cts_processing']);
+                $transaction->ctsRecord()->create([
+                    'initiated_by_id' => $request->user()->id,
+                    'status' => CtsStatus::Requested,
+                ]);
             }
         });
 
-        $state = $data['decision'] === 'approve' ? 'approved for CTS processing' : 'rejected';
+        $state = $data['decision'] === 'approve' ? 'marked eligible for sale' : 'rejected';
         $this->notifyParticipants($reservation, 'Your lot reservation was '.$state.'.');
+        if ($data['decision'] === 'approve') {
+            $ctsId = $reservation->fresh()->transaction?->ctsRecord?->id;
+            if ($ctsId !== null) {
+                $reservation->buyer->notify(new CtsActivity($ctsId, 'Eligible for sale: complete your CTS full name, marital status, age, nationality and address.'));
+                Notification::send(
+                    User::where('role', UserRole::FieldPlanner->value)->whereNotNull('email_verified_at')->get(),
+                    new CtsActivity($ctsId, 'Eligible for sale: verify and submit the seller/landowner CTS details.')
+                );
+            }
+        }
 
         return to_route('reservations.show', $reservation)->with('status', 'Reservation '.$state.'.');
     }
@@ -198,14 +218,19 @@ class ReservationController extends Controller
         $data = $request->validate(['reason' => ['required', 'string', 'max:2000']]);
 
         $this->withLockedReservation($reservation, function (Reservation $locked, Lot $lot) use ($user, $data) {
+            // Authorization must run before business-state validation. Approval now
+            // creates a CTS transaction automatically; an assigned Agent attempting
+            // to cancel an approved reservation must still receive HTTP 403, not a
+            // 302 redirect carrying a CTS-in-progress validation error.
+            // Keep this check inside the row lock to guard against approval races.
+            if ($user->role === UserRole::Agent && $locked->status !== ReservationStatus::Pending) {
+                abort(403, 'Only the Unit Manager may cancel an approved reservation.');
+            }
             if ($locked->transaction()->exists()) {
                 throw ValidationException::withMessages(['reservation' => 'A CTS process is already underway. Contact the office before changing this reservation.']);
             }
             if (! $locked->status->isActive() || $lot->status !== LotStatus::Reserved) {
                 throw ValidationException::withMessages(['reservation' => 'Only an active reservation can be cancelled.']);
-            }
-            if ($user->role === UserRole::Agent && $locked->status !== ReservationStatus::Pending) {
-                abort(403, 'Only the Unit Manager may cancel an approved reservation.');
             }
             $locked->status = ReservationStatus::Cancelled;
             $locked->review_notes = trim($data['reason']);

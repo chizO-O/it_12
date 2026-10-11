@@ -8,7 +8,7 @@
     <x-feedback />
     @if($latestReservation)
         <section class="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-            <h2 class="font-semibold text-emerald-950">Lot reservation: {{ $latestReservation->status->label() }}</h2>
+            <h2 class="font-semibold text-emerald-950">Lot reservation: {{ \App\Support\ReservationProgress::label($latestReservation) }}</h2>
             <p class="mt-1 text-sm text-stone-600">Reservation details and buyer information are handled separately from this conversation.</p>
             <a class="text-link mt-3 inline-flex" href="{{ route('reservations.show', $latestReservation) }}">View reservation →</a>
         </section>

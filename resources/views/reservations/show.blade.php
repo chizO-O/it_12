@@ -5,7 +5,7 @@
             <p class="eyebrow">{{ $reservation->lot->property->location }} · {{ $reservation->lot->property->name }}</p>
             <h1 class="mt-2 text-2xl font-semibold text-emerald-950">Reservation for Lot {{ $reservation->lot->lot_no }}</h1>
         </div>
-        <span class="rounded-full px-4 py-2 text-sm font-semibold {{ $reservation->status->isActive() ? 'bg-amber-100 text-amber-900' : 'bg-stone-100 text-stone-700' }}">{{ $reservation->status->label() }}</span>
+        <span class="rounded-full px-4 py-2 text-sm font-semibold {{ \App\Support\ReservationProgress::badgeClass($reservation) }}">{{ \App\Support\ReservationProgress::label($reservation) }}</span>
     </div>
     <x-feedback />
     <div class="grid gap-5 xl:grid-cols-2">
@@ -39,13 +39,13 @@
     @if(auth()->user()->role === \App\Enums\UserRole::UnitManager && $reservation->status === \App\Enums\ReservationStatus::Pending)
         <section class="mt-6 rounded-2xl border border-stone-200 bg-white p-6">
             <h2 class="font-semibold text-emerald-950">Unit Manager review</h2>
-            <p class="mt-2 text-sm text-stone-600">Review the buyer details and terms outside the application. Approval keeps the lot Reserved for the upcoming CTS workflow; it does not mark the lot Sold.</p>
+            <p class="mt-2 text-sm text-stone-600">Review the buyer details and terms outside the application. Marking this reservation eligible for sale automatically opens the buyer and seller CTS detail forms. It does not mark the lot Sold.</p>
             <form method="POST" action="{{ route('reservations.review', $reservation) }}" class="mt-4 space-y-3">
                 @csrf @method('PATCH')
                 <label for="review_notes" class="block text-sm font-medium">Review notes (required when rejecting)</label>
                 <textarea class="form-input w-full" name="review_notes" id="review_notes" rows="3" maxlength="2000">{{ old('review_notes') }}</textarea>
                 <div class="flex flex-wrap gap-3">
-                    <button type="submit" name="decision" value="approve" class="btn-primary" @disabled(!$reservation->buyerForm)>Approve for CTS</button>
+                    <button type="submit" name="decision" value="approve" class="btn-primary" @disabled(!$reservation->buyerForm)>Eligible for sale</button>
                     <button type="submit" name="decision" value="reject" class="btn-secondary">Reject reservation</button>
                 </div>
             </form>
@@ -68,16 +68,16 @@
     @endif
     @if($reservation->status === \App\Enums\ReservationStatus::Approved)
         <section class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
-            <h2 class="font-semibold">CTS document tracking</h2>
-            <p class="mt-2">Reservation approved. The lot remains Reserved while the CTS is processed externally.</p>
+            <h2 class="font-semibold">CTS (Contract to Sell)</h2>
+            <p class="mt-2">The reservation is eligible for sale. Buyer and Field Planner provide their CTS details independently before the Secretary prepares the draft. The lot stays Reserved until sale confirmation.</p>
             @if($reservation->transaction?->ctsRecord)
-                <a href="{{ route('cts.show', $reservation->transaction->ctsRecord) }}" class="btn-primary mt-4 inline-flex">View CTS progress</a>
-            @elseif(auth()->user()->role === \App\Enums\UserRole::UnitManager && $reservation->agent->unit_manager_id === auth()->id())
+                <a href="{{ route('cts.show', $reservation->transaction->ctsRecord) }}" class="btn-primary mt-4 inline-flex">View CTS</a>
+            @elseif(auth()->user()->role === \App\Enums\UserRole::Admin)
                 <form method="POST" action="{{ route('cts.initiate', $reservation) }}" class="mt-4">@csrf
-                    <button type="submit" class="btn-primary">Initiate CTS tracking</button>
+                    <button type="submit" class="btn-primary">Open legacy CTS record</button>
                 </form>
             @else
-                <p class="mt-2">Awaiting Unit Manager initiation.</p>
+                <p class="mt-2">This approved reservation predates automatic CTS setup. Ask the Secretary to open the legacy record; no further Unit Manager approval is needed.</p>
             @endif
         </section>
     @endif

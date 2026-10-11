@@ -48,7 +48,8 @@ class CtsRecordPolicy
     public function prepare(User $user, CtsRecord $cts): bool
     {
         return $user->role === UserRole::Admin
-            && in_array($cts->status, [CtsStatus::Requested, CtsStatus::PropertyVerified, CtsStatus::RevisionRequested], true);
+            && in_array($cts->status, [CtsStatus::Requested, CtsStatus::PropertyVerified, CtsStatus::RevisionRequested], true)
+            && ($cts->draft_path !== null || $cts->partiesReady());
     }
 
     public function uploadDraft(User $user, CtsRecord $cts): bool

@@ -106,6 +106,7 @@ class CtsTrackingTest extends TestCase
         $this->assertSame(CtsStatus::PropertyVerified, $cts->fresh()->status);
 
         $this->actingAs($data['buyer'])->patch(route('cts.buyer-details', $cts), [
+            'buyer_full_name' => 'Sample Buyer CTS Name',
             'buyer_permanent_address' => 'Davao City', 'buyer_marital_status' => 'Single',
             'buyer_age' => 27, 'buyer_nationality' => 'Filipino',
         ])->assertRedirect();
@@ -177,10 +178,10 @@ class CtsTrackingTest extends TestCase
     {
         $data = $this->setupApproved();
         $this->actingAs($data['admin'])->get(route('cts.index'))->assertOk()
-            ->assertSee('Prepare CTS')->assertSee($data['buyer']->name);
+            ->assertSee('Open legacy CTS record')->assertSee($data['buyer']->name);
         $cts = $this->initiated($data);
         $this->actingAs($data['admin'])->get(route('cts.index'))->assertOk()
-            ->assertDontSee('Prepare CTS</button>', false);
+            ->assertDontSee('Open legacy CTS record</button>', false);
         $this->actingAs($data['buyer'])->get(route('cts.index'))->assertOk()
             ->assertSee('My CTS documents')->assertSee('Lot '.$data['lot']->lot_no);
         $cts->draft_path = 'cts/sample-draft.pdf';
@@ -257,6 +258,7 @@ class CtsTrackingTest extends TestCase
         $cts = $this->initiated($data);
         $stranger = User::factory()->create(['role' => UserRole::Buyer]);
         $payload = [
+            'buyer_full_name' => 'CTS Buyer Sample',
             'buyer_permanent_address' => 'Toril, Davao City',
             'buyer_marital_status' => 'Single',
             'buyer_age' => 29,

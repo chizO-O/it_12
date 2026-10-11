@@ -84,6 +84,16 @@ class CtsController extends Controller
         return to_route('cts.show', $cts)->with('status', 'CTS preparation opened. The Field Planner can now verify the seller/landowner.');
     }
 
+    /** Resolve an approved reservation to its accessible CTS record; no data is created by GET. */
+    public function forReservation(Reservation $reservation): RedirectResponse
+    {
+        $cts = $reservation->transaction?->ctsRecord;
+        abort_unless($cts, 404);
+        Gate::authorize('view', $cts);
+
+        return to_route('cts.show', $cts);
+    }
+
     public function show(Request $request, CtsRecord $cts): View
     {
         Gate::authorize('view', $cts);
@@ -97,11 +107,13 @@ class CtsController extends Controller
     {
         Gate::authorize('editBuyerDetails', $cts);
         $data = $request->validate([
+            'buyer_full_name' => ['required', 'string', 'min:2', 'max:200'],
             'buyer_permanent_address' => ['required', 'string', 'max:1500'],
             'buyer_marital_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Legally Separated', 'Divorced', 'Other'])],
             'buyer_age' => ['required', 'integer', 'between:1,120'],
             'buyer_nationality' => ['required', 'string', 'max:100'],
         ]);
+        $alreadyReady = $cts->partiesReady();
         $this->change($cts, 'editBuyerDetails', function (CtsRecord $locked) use ($data) {
             foreach ($data as $field => $value) {
                 $locked->{$field} = $value;
@@ -109,6 +121,7 @@ class CtsController extends Controller
             $locked->buyer_details_submitted_at ??= now();
         });
 
+        $this->notifyWhenPartiesReady($cts, $alreadyReady);
         return to_route('cts.show', $cts)->with('status', 'Your CTS buyer details were saved.');
     }
 
@@ -127,6 +140,7 @@ class CtsController extends Controller
             'landowner_relationship' => ['nullable', 'string', 'max:150'],
             'verification_notes' => ['nullable', 'string', 'max:3000'],
         ]);
+        $alreadyReady = $cts->partiesReady();
         $this->change($cts, 'verifyProperty', function (CtsRecord $locked) use ($request, $data) {
             // Do not reset a CTS draft/review/signing status when landowner details are edited.
             if ($locked->status === CtsStatus::Requested) {
@@ -144,9 +158,7 @@ class CtsController extends Controller
             $locked->landowner_relationship = $data['landowner_relationship'] ?? null;
             $locked->verification_notes = $data['verification_notes'] ?? null;
         });
-        if ($cts->fresh()->status === CtsStatus::PropertyVerified) {
-            $this->notifyRoles([UserRole::Admin], $cts, 'Property verification recorded. CTS draft may be uploaded.');
-        }
+        $this->notifyWhenPartiesReady($cts, $alreadyReady);
 
         return to_route('cts.show', $cts)->with('status', 'Landowner verification information saved.');
     }
@@ -155,6 +167,9 @@ class CtsController extends Controller
     public function prepare(Request $request, CtsRecord $cts): RedirectResponse
     {
         Gate::authorize('prepare', $cts);
+        if (! $cts->draft_path && ! $cts->partiesReady()) {
+            throw ValidationException::withMessages(['cts' => 'Wait until the Buyer and Field Planner submit all CTS identity details.']);
+        }
         $data = $request->validate([
             'contract_price' => ['required', 'numeric', 'gt:0', 'decimal:0,2', 'max:999999999999.99'],
             'ownership_agreement' => ['required', 'string', 'min:10', 'max:6000'],
@@ -180,9 +195,7 @@ class CtsController extends Controller
         }
         // New CTS drafts require both parties' relevant contract details.
         // Existing draft versions remain accessible for legacy records and amendments.
-        if (! $cts->draft_path && (! $cts->buyer_details_submitted_at
-            || ! $cts->landowner_permanent_address || ! $cts->landowner_marital_status
-            || ! $cts->landowner_age || ! $cts->landowner_nationality)) {
+        if (! $cts->draft_path && ! $cts->partiesReady()) {
             throw ValidationException::withMessages([
                 'cts' => 'Buyer CTS details and complete Field Planner seller details are required before uploading the first draft.',
             ]);
@@ -257,6 +270,15 @@ class CtsController extends Controller
         abort_unless($path, 404);
 
         return redirect()->away($storage->signedUrl($path));
+    }
+
+    /** Notify the office only on the transition from incomplete to complete parties. */
+    private function notifyWhenPartiesReady(CtsRecord $cts, bool $wasReady): void
+    {
+        $cts->refresh();
+        if (! $wasReady && $cts->partiesReady()) {
+            $this->notifyRoles([UserRole::Admin], $cts, 'Buyer and seller CTS information is complete. Prepare the contract draft.');
+        }
     }
 
     /** Recheck authorization and allowed state under row lock. */
