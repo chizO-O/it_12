@@ -13,7 +13,7 @@
             <dl class="mt-7 grid gap-6 border-t border-stone-100 pt-6 sm:grid-cols-2">
                 <div><dt class="text-xs uppercase tracking-wider text-stone-500">Email address</dt><dd class="mt-2 break-all font-medium">{{ auth()->user()->email }}</dd></div>
                 <div><dt class="text-xs uppercase tracking-wider text-stone-500">Account role</dt><dd class="mt-2 font-medium">{{ auth()->user()->role->label() }}</dd></div>
-                <div><dt class="text-xs uppercase tracking-wider text-stone-500">Email status</dt><dd class="mt-2 font-medium text-emerald-700">Verified</dd></div>
+                <div><dt class="text-xs uppercase tracking-wider text-stone-500">Account status</dt><dd class="mt-2 font-medium text-emerald-700">Active</dd></div>
             </dl>
         </section>
         <section class="mt-5 rounded-2xl border border-stone-200 bg-white p-6 sm:p-8">

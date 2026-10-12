@@ -8,9 +8,8 @@ use App\Rules\UniqueUserEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Password;
+use App\Support\EmployeeActivationCode;
 use Illuminate\View\View;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class AgentManagementController extends Controller
 {
@@ -39,13 +38,18 @@ class AgentManagementController extends Controller
         $agent->unit_manager_id = $request->user()->id;
         $agent->invited_by_user_id = $request->user()->id;
         $agent->save();
-        return $this->sendInvitation($agent);
+        return $this->issueCode($agent);
     }
 
     public function invite(Request $request, User $agent): RedirectResponse
     {
         abort_unless($agent->role === UserRole::Agent && $agent->unit_manager_id === $request->user()->id && $agent->password === null, 403);
-        return $this->sendInvitation($agent);
+        if ($agent->invited_by_user_id === null) {
+            $agent->invited_by_user_id = $request->user()->id;
+            $agent->save();
+        }
+
+        return $this->issueCode($agent);
     }
 
     public function claim(Request $request, User $agent): RedirectResponse
@@ -59,16 +63,11 @@ class AgentManagementController extends Controller
         return to_route('agents.index')->with('status', 'Existing Agent linked to your management account.');
     }
 
-    private function sendInvitation(User $agent): RedirectResponse
+    private function issueCode(User $agent): RedirectResponse
     {
-        try {
-            $status = Password::sendResetLink(['email' => $agent->email]);
-        } catch (TransportExceptionInterface $exception) {
-            report($exception);
-            return to_route('agents.index')->withErrors(['invitation' => 'Account created, but invitation delivery failed. You can resend it.']);
-        }
-        return $status === Password::RESET_LINK_SENT
-            ? to_route('agents.index')->with('status', 'Agent invitation generated for '.$agent->email.'.')
-            : to_route('agents.index')->withErrors(['invitation' => __($status)]);
+        return to_route('agents.index')
+            ->with('status', 'Agent saved. Share this one-time setup code privately (valid for 60 minutes).')
+            ->with('activation_code', EmployeeActivationCode::issue($agent))
+            ->with('activation_email', $agent->email);
     }
 }

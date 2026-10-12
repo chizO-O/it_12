@@ -9,6 +9,7 @@ use App\Http\Controllers\NotificationCenterController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\CtsController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeeActivationController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\InquiryNotificationController;
@@ -26,6 +27,12 @@ Route::get('/', function () {
 
 Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])->middleware(['guest', 'throttle:10,1'])->name('google.redirect');
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->middleware(['auth.session', 'throttle:10,1'])->name('google.callback');
+
+Route::middleware(['guest', 'throttle:15,1', \App\Http\Middleware\NoStoreActivationCodes::class])->group(function () {
+    Route::get('/activate-employee', [EmployeeActivationController::class, 'create'])->name('employee-activation.create');
+    Route::post('/activate-employee', [EmployeeActivationController::class, 'store'])
+        ->middleware('throttle:5,1')->name('employee-activation.store');
+});
 
 Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'redirect'])->name('dashboard');
@@ -104,7 +111,7 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
         ->middleware(['role:cashier', 'throttle:15,1'])->name('sales.payments.store');
 
     Route::middleware('role:unit_manager')->group(function () {
-        Route::get('/agents', [AgentManagementController::class, 'index'])->name('agents.index');
+        Route::get('/agents', [AgentManagementController::class, 'index'])->middleware(\App\Http\Middleware\NoStoreActivationCodes::class)->name('agents.index');
         Route::post('/agents', [AgentManagementController::class, 'store'])->middleware('throttle:10,1')->name('agents.store');
         Route::post('/agents/{agent}/invite', [AgentManagementController::class, 'invite'])->middleware('throttle:10,1')->name('agents.invite');
         Route::post('/agents/{agent}/claim', [AgentManagementController::class, 'claim'])->name('agents.claim');
@@ -113,7 +120,7 @@ Route::middleware(['auth', 'auth.session', 'verified'])->group(function () {
     });
 
     Route::middleware('role:admin')->group(function () {
-        Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
+        Route::get('/employees', [EmployeeController::class, 'index'])->middleware(\App\Http\Middleware\NoStoreActivationCodes::class)->name('employees.index');
         Route::post('/employees', [EmployeeController::class, 'store'])->middleware('throttle:10,1')->name('employees.store');
         Route::patch('/employees/{employee}/role', [EmployeeController::class, 'updateRole'])->middleware('throttle:10,1')->name('employees.role');
         Route::post('/employees/{employee}/invitation', [EmployeeController::class, 'invite'])->middleware('throttle:10,1')->name('employees.invite');

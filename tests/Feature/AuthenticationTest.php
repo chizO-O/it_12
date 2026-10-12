@@ -24,7 +24,7 @@ class AuthenticationTest extends TestCase
         }
     }
 
-    public function test_registration_always_creates_an_unverified_buyer_and_sends_verification(): void
+    public function test_registration_activates_buyer_without_email_delivery(): void
     {
         Notification::fake();
 
@@ -40,13 +40,13 @@ class AuthenticationTest extends TestCase
 
         $user = User::where('email', 'buyer@example.com')->firstOrFail();
         $this->assertSame(UserRole::Buyer, $user->role);
-        $this->assertNull($user->email_verified_at);
+        $this->assertNotNull($user->email_verified_at); // account activation, not proof of mailbox ownership
         $this->assertNull($user->google_id);
         $this->assertTrue(Hash::check('a-long-buyer-password', $user->password));
-        Notification::assertSentTo($user, VerifyEmail::class);
+        Notification::assertNotSentTo($user, VerifyEmail::class);
         $this->assertAuthenticatedAs($user);
-        $this->get('/dashboard')->assertRedirect(route('verification.notice'));
-        $this->get('/email/verify')->assertOk()->assertSee('buyer@example.com');
+        $this->get('/dashboard')->assertRedirect(route('buyer.dashboard'));
+        $this->get(route('buyer.dashboard'))->assertOk();
     }
 
     public function test_registration_rejects_duplicate_emails_and_short_passwords(): void

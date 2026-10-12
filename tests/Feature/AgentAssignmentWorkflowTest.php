@@ -33,11 +33,12 @@ class AgentAssignmentWorkflowTest extends TestCase
         $this->actingAs($admin)->post(route('employees.store'), $payload + ['role' => 'agent'])
             ->assertSessionHasErrors('role');
         $this->actingAs($manager)->post(route('agents.store'), $payload)
-            ->assertRedirect(route('agents.index'));
+            ->assertRedirect(route('agents.index'))->assertSessionHas('activation_code');
         $agent = User::where('email', 'new-agent@example.com')->firstOrFail();
         $this->assertSame(UserRole::Agent, $agent->role);
         $this->assertSame($manager->id, $agent->unit_manager_id);
-        Notification::assertSentTo($agent, ResetPassword::class);
+        Notification::assertNotSentTo($agent, ResetPassword::class);
+        $this->assertNull($agent->password);
     }
 
     public function test_manager_can_link_an_existing_unmanaged_agent(): void

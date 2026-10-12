@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Enums\UserRole;
 use App\Models\User;
 use App\Rules\UniqueUserEmail;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
@@ -51,9 +50,9 @@ class CreateAdmin extends Command
             'password' => $input['password'],
         ]);
         $admin->role = UserRole::Admin;
+        $admin->email_verified_at = now(); // activated, not proof of mailbox ownership
         $admin->save();
-        $this->info('Admin created. Sign in and verify your email to access the Office dashboard.');
-        event(new Registered($admin));
+        $this->info('Admin account created and activated. Sign in to access the Office dashboard.');
 
         return self::SUCCESS;
     }

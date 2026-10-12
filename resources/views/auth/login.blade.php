@@ -10,5 +10,6 @@
         <button class="btn-primary w-full">Sign in</button>
     </form>
     <x-google-button />
+    <p class="mt-4 text-center text-sm text-stone-600">New employee? <a href="{{ route('employee-activation.create') }}" class="text-link">Activate your account with a setup code</a></p>
     <p class="mt-7 text-center text-sm text-stone-600">New to GroveMap? <a href="{{ route('register') }}" class="text-link">Create a buyer account</a></p>
 </x-auth-card>

@@ -6,7 +6,7 @@
     </div>
     <x-feedback />
     @if($agents->isEmpty())
-        <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">No verified Agents under your supervision. <a class="text-link" href="{{ route('agents.index') }}">Invite or link an Agent first.</a></div>
+        <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">No active Agents under your supervision. <a class="text-link" href="{{ route('agents.index') }}">Invite or link an Agent first.</a></div>
     @endif
     <div class="space-y-4">
         @forelse($lots as $lot)

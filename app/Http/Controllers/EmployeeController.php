@@ -7,10 +7,9 @@ use App\Models\User;
 use App\Rules\UniqueUserEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Password;
+use App\Support\EmployeeActivationCode;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class EmployeeController extends Controller
 {
@@ -39,14 +38,19 @@ class EmployeeController extends Controller
         $employee->invited_by_user_id = $request->user()->id;
         $employee->save();
 
-        return $this->sendInvitation($employee);
+        return $this->issueCode($employee);
     }
 
     public function invite(User $employee): RedirectResponse
     {
         abort_if(in_array($employee->role, [UserRole::Buyer, UserRole::Agent], true) || $employee->password !== null, 403);
 
-        return $this->sendInvitation($employee);
+        if ($employee->invited_by_user_id === null) {
+            $employee->invited_by_user_id = auth()->id();
+            $employee->save();
+        }
+
+        return $this->issueCode($employee);
     }
 
     public function updateRole(Request $request, User $employee): RedirectResponse
@@ -69,22 +73,11 @@ class EmployeeController extends Controller
         return [UserRole::Admin, UserRole::UnitManager, UserRole::FieldPlanner, UserRole::Cashier];
     }
 
-    private function sendInvitation(User $employee): RedirectResponse
+    private function issueCode(User $employee): RedirectResponse
     {
-        try {
-            $status = Password::sendResetLink(['email' => $employee->email]);
-        } catch (TransportExceptionInterface $exception) {
-            report($exception);
-
-            return redirect()->route('employees.index')->withErrors([
-                'invitation' => 'The account was created, but the invitation could not be sent. Please try resending it.',
-            ]);
-        }
-
-        if ($status !== Password::RESET_LINK_SENT) {
-            return redirect()->route('employees.index')->withErrors(['invitation' => __($status)]);
-        }
-
-        return redirect()->route('employees.index')->with('status', 'A password setup link has been sent to '.$employee->email.'.');
+        return to_route('employees.index')
+            ->with('status', 'Account saved. Give the employee this one-time setup code privately (valid for 60 minutes).')
+            ->with('activation_code', EmployeeActivationCode::issue($employee))
+            ->with('activation_email', $employee->email);
     }
 }

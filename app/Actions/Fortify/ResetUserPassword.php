@@ -19,8 +19,9 @@ class ResetUserPassword implements ResetsUserPasswords
             'password' => $input['password'],
         ])->save();
 
+        // Password setup/reset completes access activation without sending email verification.
         if (! $user->hasVerifiedEmail()) {
-            $user->sendEmailVerificationNotification();
+            $user->markEmailAsVerified();
         }
     }
 }

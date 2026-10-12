@@ -29,6 +29,8 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $input['password'],
         ]);
         $user->role = UserRole::Buyer;
+        // Backward-compatibility activation flag: no email ownership check is performed.
+        $user->email_verified_at = now();
         $user->save();
 
         return $user;

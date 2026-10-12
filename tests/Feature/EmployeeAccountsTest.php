@@ -26,13 +26,13 @@ class EmployeeAccountsTest extends TestCase
         $this->post('/employees', [
             'name' => 'Cashier One', 'email' => 'CASHIER@example.com', 'role' => 'cashier',
             'password' => 'forged-password', 'email_verified_at' => now(),
-        ])->assertRedirect(route('employees.index'))->assertSessionHas('status');
+        ])->assertRedirect(route('employees.index'))->assertSessionHas('status')->assertSessionHas('activation_code');
 
         $employee = User::where('email', 'cashier@example.com')->firstOrFail();
         $this->assertSame(UserRole::Cashier, $employee->role);
         $this->assertNull($employee->password);
         $this->assertNull($employee->email_verified_at);
-        Notification::assertSentTo($employee, ResetPassword::class);
+        Notification::assertNotSentTo($employee, ResetPassword::class);
         $this->get('/employees')->assertSee('Setup pending')->assertSee('cashier@example.com');
     }
 
@@ -68,23 +68,27 @@ class EmployeeAccountsTest extends TestCase
         $this->assertDatabaseCount('users', 1);
     }
 
-    public function test_invited_employee_sets_password_then_verifies_email_before_office_access(): void
+    public function test_employee_can_activate_with_one_time_code_without_email(): void
     {
         Notification::fake();
-        $employee = User::factory()->unverified()->create(['role' => 'field_planner', 'password' => null]);
-        $token = Password::createToken($employee);
-
-        $this->post('/reset-password', [
-            'email' => $employee->email, 'token' => $token,
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = User::factory()->unverified()->create([
+            'role' => 'field_planner', 'password' => null, 'invited_by_user_id' => $admin->id,
+        ]);
+        $code = Password::broker()->createToken($employee);
+        $payload = [
+            'email' => $employee->email, 'code' => $code,
             'password' => 'a-field-planner-password', 'password_confirmation' => 'a-field-planner-password',
             'role' => 'admin',
-        ])->assertRedirect('/login');
+        ];
+        $this->post(route('employee-activation.store'), $payload)->assertRedirect(route('login'));
         $this->assertTrue(Hash::check('a-field-planner-password', $employee->fresh()->password));
+        $this->assertTrue($employee->fresh()->hasVerifiedEmail());
         $this->assertSame(UserRole::FieldPlanner, $employee->fresh()->role);
-        Notification::assertSentTo($employee, VerifyEmail::class);
-
+        Notification::assertNotSentTo($employee, VerifyEmail::class);
+        $this->post(route('employee-activation.store'), $payload)->assertSessionHasErrors('code');
         $this->post('/login', ['email' => $employee->email, 'password' => 'a-field-planner-password'])->assertRedirect('/dashboard');
-        $this->get('/office/dashboard')->assertRedirect(route('verification.notice'));
+        $this->get('/office/dashboard')->assertOk();
     }
 
     public function test_admin_can_resend_pending_invitation_but_cannot_invite_buyers_or_active_employees(): void
@@ -96,7 +100,7 @@ class EmployeeAccountsTest extends TestCase
         $active = User::factory()->create(['role' => 'cashier']);
 
         $this->actingAs($admin)->post(route('employees.invite', $employee))->assertSessionHas('status');
-        Notification::assertSentTo($employee, ResetPassword::class);
+        Notification::assertNotSentTo($employee, ResetPassword::class);
         $this->post(route('employees.invite', $buyer))->assertForbidden();
         $this->post(route('employees.invite', $active))->assertForbidden();
         $legacyAgent = User::factory()->unverified()->create(['role' => 'agent', 'password' => null]);
@@ -115,8 +119,8 @@ class EmployeeAccountsTest extends TestCase
         $admin = User::where('email', 'admin@example.com')->firstOrFail();
         $this->assertSame(UserRole::Admin, $admin->role);
         $this->assertTrue(Hash::check('a-private-admin-password', $admin->password));
-        $this->assertFalse($admin->hasVerifiedEmail());
-        Notification::assertSentTo($admin, VerifyEmail::class);
+        $this->assertTrue($admin->hasVerifiedEmail());
+        Notification::assertNotSentTo($admin, VerifyEmail::class);
         $this->artisan('grove:create-admin')->assertExitCode(1);
         $this->assertDatabaseCount('users', 1);
     }

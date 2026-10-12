@@ -1,4 +1,4 @@
-<x-auth-card title="Find your place" description="Create your buyer account. We'll send a link to verify your email address.">
+<x-auth-card title="Find your place" description="Create your buyer account and choose a password. No email verification is required.">
     <form method="POST" action="{{ route('register') }}" class="space-y-5">
         @csrf
         <x-form-field name="name" label="Full name" autocomplete="name" maxlength="255" autofocus />
