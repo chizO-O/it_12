@@ -5,8 +5,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#163b2d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="GroveMap">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('pwa/icon-192.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('pwa/apple-touch-icon.png') }}">
     <title>{{ $title }} · GroveMap</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>[data-grovemap-install][hidden] { display: none !important; }</style>
 </head>
 <body class="min-h-screen bg-stone-50 text-stone-800 antialiased {{ $workspace ? 'pb-20 lg:pb-0' : '' }}">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-4">Skip to content</a>
@@ -20,6 +27,7 @@
                 <span><span class="block text-xl font-bold tracking-tight text-emerald-950">GroveMap</span><span class="block text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-500">SGRE Marketing</span></span>
             </a>
             <nav class="flex flex-wrap items-center gap-4 text-sm font-medium" aria-label="Main navigation">
+                <button type="button" data-grovemap-install hidden class="rounded-xl border border-emerald-800 px-3 py-2 text-emerald-900 hover:bg-emerald-50">Install app</button>
                 @auth
                     @if(auth()->user()->hasVerifiedEmail() && ! $workspace)
                         <a href="{{ route('dashboard') }}" class="nav-link" @if(request()->routeIs('*dashboard')) aria-current="page" @endif>Dashboard</a>

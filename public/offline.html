@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#163b2d">
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none';">
+    <title>Offline · GroveMap</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100svh; display: grid; place-items: center; padding: 24px; background: #f8faf8; font: 16px/1.6 system-ui, -apple-system, sans-serif; color: #24402f; }
+        main { width: min(100%, 460px); background: white; border: 1px solid #d8e4d8; border-radius: 24px; padding: 40px 32px; box-shadow: 0 18px 48px #1235240d; }
+        .symbol { width: 54px; height: 54px; border-radius: 15px; background: #163b2d; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding: 13px; margin-bottom: 26px; }
+        .symbol i { background: #8ed5a5; border-radius: 3px; }.symbol i:first-child { background: #c7ed83; }.symbol i:last-child { background: #26744e; }
+        h1 { margin: 0 0 10px; font-size: clamp(1.6rem, 5vw, 2rem); line-height: 1.2; }
+        p { margin: 0 0 20px; color: #587261; }
+        a.retry { display: inline-block; text-decoration: none; background: #163b2d; color: white; border-radius: 11px; padding: 12px 20px; font: 600 15px system-ui, sans-serif; cursor: pointer; }
+        a.retry:focus-visible { outline: 3px solid #83bfa2; outline-offset: 3px; }
+        small { display: block; margin-top: 18px; color: #59715f; }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="symbol" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <h1>You're offline</h1>
+        <p>GroveMap needs an internet connection to securely access lots, reservations, CTS documents, and payments. Your private information is not stored for offline viewing.</p>
+        <a class="retry" href="/">Try again</a>
+        <small>Reconnect to Wi-Fi or mobile data, then try again.</small>
+    </main>
+</body>
+</html>

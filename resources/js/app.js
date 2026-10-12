@@ -5,3 +5,5 @@ import './inquiries';
 import './reservations';
 
 import './sales.js';
+
+import './pwa';

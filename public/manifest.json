@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "GroveMap - SGRE Marketing",
+  "short_name": "GroveMap",
+  "description": "SGRE Marketing's property management platform for buyers, agents, and office teams.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f9faf7",
+  "theme_color": "#163b2d",
+  "lang": "en",
+  "icons": [
+    {"src": "/pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/pwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
